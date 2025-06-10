@@ -1,0 +1,53 @@
+self.MaxEvals:
+Meaning: An integer. The maximum number of function evaluations (FEs) allowed when an optimizer tries to solve this specific GNBG problem instance. This is the "budget" of evaluations for one run of an algorithm on this problem.
+Use: The fitness method checks self.FE against this value to stop further evaluations if the budget is exceeded.
+
+self.AcceptanceThreshold:
+Meaning: A small floating-point number (e.g., 1e-8).
+Use: If the absolute difference between a found solution's fitness and the known self.OptimumValue is less than this threshold, the algorithm is considered to have reached the desired precision. Used to update self.AcceptanceReachPoint.
+
+self.Dimension:
+Meaning: An integer. The number of variables (or dimensions) in the input vector X that an optimization algorithm needs to find values for. For the GNBG suite, this is typically 30.
+
+self.CompNum:
+Meaning: An integer. Stands for "Number of Components" (o in the GNBG paper's Equation 1). GNBG functions are constructed by combining one or more underlying mathematical "components." This attribute tells how many such components make up this specific problem's landscape.
+
+self.MinCoordinate, self.MaxCoordinate:
+Meaning: Floating-point numbers. These define the global lower and upper bounds for each variable in the search space. For the GNBG suite, this is typically -100.0 and 100.0, respectively.
+
+self.CompMinPos (Component Minimum Position):
+Meaning: A NumPy array, typically with shape (CompNum, Dimension). Each row k is a Dimension-dimensional vector m_k representing the center (location of the ideal minimum) of the k-th component used to build the function.
+
+self.CompSigma (Component Sigma):
+Meaning: A NumPy array, typically with shape (CompNum,) or (CompNum, 1). Each element CompSigma[k] is the scalar σ_k, the base objective value of the k-th component at its CompMinPos.
+
+self.CompH (Component H Matrix Elements):
+Meaning: A NumPy array, typically with shape (CompNum, Dimension). Each row k provides the Dimension diagonal elements of the H_k matrix for the k-th component. These values scale the basin of attraction along each axis, influencing its shape and conditioning (how "stretched" it is).
+
+self.Mu (Mu Parameters):
+Meaning: A NumPy array, typically with shape (CompNum, 2). Each row k (self.Mu[k,:]) contains the two µ_k parameters (µ_k,1, µ_k,2) for the k-th component.
+Use: Used in the transform method (which implements T_k from the GNBG paper) to introduce asymmetry and affect the depth of local optima within the basin of the k-th component.
+
+self.Omega (Omega Parameters):
+Meaning: A NumPy array, typically with shape (CompNum, 4). Each row k (self.Omega[k,:]) contains the four ω_k parameters (ω_k,1, ω_k,2, ω_k,3, ω_k,4) for the k-th component.
+Use: Used in the transform method to control the number, width, and shape of local optima (the "bumpiness" or "ruggedness") within the basin of the k-th component.
+
+self.Lambda:
+Meaning: A NumPy array, typically with shape (CompNum,) or (CompNum, 1). Each element Lambda[k] (the λ_k parameter) affects the linearity or curvature of the basin of the k-th component (e.g., making it more V-shaped, U-shaped, or flatter).
+
+self.RotationMatrix:
+Meaning: A NumPy array. It can be:
+A 2D array of shape (Dimension, Dimension) if all components share the same rotation matrix or if there's only one component (CompNum = 1).
+A 3D array of shape (Dimension, Dimension, CompNum) if each component k has its own unique rotation matrix R_k.
+Use: This matrix introduces interactions between variables (non-separability) by rotating the coordinate system for the respective component(s).
+
+self.OptimumValue:
+Meaning: A floating-point number. The known global minimum value for this specific GNBG problem instance.
+Use: Used to calculate error (abs(current_fitness - self.OptimumValue)) for checking AcceptanceThreshold and for metrics like AOCC.
+
+self.OptimumPosition:
+Meaning: A NumPy array of shape (Dimension,). The known location (vector of variables) where the OptimumValue occurs. (Not directly used in fitness or transform but important for knowing the solution).
+
+
+self.FEHistory: list of record of objective function value, for a function f1, if evaluated budget = 100, FEhistory will contains 100 fitness
+if the fe history is too far from optimin value, the aocc is 0
