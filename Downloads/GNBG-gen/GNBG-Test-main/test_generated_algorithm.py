@@ -376,10 +376,6 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
             logging.info(f"Std fitness: {np.std(best_values)}") 
             logging.info(f"Mean AOCC:         {np.mean(aoccs):.4f} (Higher is better)")
             logging.info(f"Std Dev AOCC:      {np.std(aoccs):.4f}")
-
-            output_filename = f"problem{ProblemIndex}_run{run + 1}.txt"
-            output_filepath = os.path.join(best_solutions_folder, output_filename)
-            np.savetxt(output_filepath, best_solution) # Lưu vector tốt nhất
         
         except Exception as e:
             logging.error(f"Run {run + 1} failed due to: {e}", exc_info=True)
@@ -393,6 +389,10 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
                 best_error = error
             convergence.append(best_error)
 
+        output_filename = f"problem{ProblemIndex}_run{run + 1}.txt"
+        output_filepath = os.path.join(best_solutions_folder, output_filename)
+        np.savetxt(output_filepath, best_solution) # Lưu vector tốt nhất
+        
         # Plotting the convergence
         plt.plot(range(1, len(convergence) + 1), convergence)
         plt.xlabel('Function Evaluation Number (FE)')
@@ -403,7 +403,7 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
         plt.tight_layout()
         plt.savefig(f"{folder}/convergence_problem{ProblemIndex}_run{run + 1}.png")
         plt.close()
-        
+
 if __name__ == "__main__":
     folder_path = "/kaggle/working/simple-test-2/Downloads/GNBG-gen/GNBG-Test-main/codes/gnbg_python"
 
