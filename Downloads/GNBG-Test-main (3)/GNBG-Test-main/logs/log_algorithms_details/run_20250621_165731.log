@@ -1,0 +1,311 @@
+2025-06-21 16:57:31 INFO Initializing first population
+2025-06-21 16:57:31 INFO Initializing population from 7 seed files...
+2025-06-21 16:57:31 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:57:36 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 16:57:36 INFO FeHistory: [2.54857405e+06 1.51121190e+06 7.32408141e+05 ... 4.16923452e+02
+ 4.16922771e+02 4.16922733e+02]
+2025-06-21 16:57:36 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:57:36 INFO Unimodal AOCC mean: nan
+2025-06-21 16:57:36 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-21 16:57:36 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:57:36 INFO AOCC mean: 0.0000
+2025-06-21 16:57:36 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:57:43 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0385
+2025-06-21 16:57:43 INFO FeHistory: [ 2.41436042e+06  1.41798901e+06  6.93697245e+05 ... -8.75565391e+02
+ -8.75565393e+02 -8.75565445e+02]
+2025-06-21 16:57:43 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:57:43 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianMutationDE
+import numpy as np
+import random
+
+class AdaptiveGaussianMutationDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.fitness_values = None
+        self.mutation_scale = 0.8 # Initial mutation scale
+        self.mutation_scale_decay = 0.99 #decay factor for the mutation scale
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = self._initialize_population()
+        self.fitness_values = self._evaluate_population(objective_function)
+
+        self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population,self.fitness_values)
+
+        while self.eval_count < self.budget:
+            new_population = []
+            new_fitness_values = []
+
+            for i in range(self.population_size):
+                # Differential Mutation
+                a, b, c = self._select_different(i)
+                mutant = self.population[a] + self.mutation_scale * (self.population[b] - self.population[c])
+
+                #Adaptive Gaussian perturbation to escape local optima
+                mutant += np.random.normal(0, self.mutation_scale/2, self.dim)  
+
+                #Clipping
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                #Crossover
+                trial = np.where(np.random.rand(self.dim) < 0.5, mutant, self.population[i])
+
+                #Selection
+                trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                self.eval_count += 1
+                if trial_fitness < self.fitness_values[i]:
+                    new_population.append(trial)
+                    new_fitness_values.append(trial_fitness)
+                else:
+                    new_population.append(self.population[i])
+                    new_fitness_values.append(self.fitness_values[i])
+                
+                best_solution,best_fitness = self._find_best(np.array(new_population), np.array(new_fitness_values))
+                if best_fitness < self.best_fitness_overall:
+                    self.best_solution_overall = best_solution
+                    self.best_fitness_overall = best_fitness
+
+
+            self.population = np.array(new_population)
+            self.fitness_values = np.array(new_fitness_values)
+            self.mutation_scale *= self.mutation_scale_decay #Decay mutation scale
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _evaluate_population(self, objective_function):
+        population_reshaped = self.population.reshape(-1, self.dim)
+        fitness = objective_function(population_reshaped)
+        self.eval_count += self.population_size
+        return fitness
+
+    def _select_different(self, index):
+        a, b, c = random.sample(range(self.population_size), 3)
+        while a == index or b == index or c == index or a == b or a == c or b == c:
+            a, b, c = random.sample(range(self.population_size), 3)
+        return a, b, c
+
+    def _find_best(self,population,fitness_values):
+        best_index = np.argmin(fitness_values)
+        return population[best_index], fitness_values[best_index]
+2025-06-21 16:57:43 INFO Unimodal AOCC mean: nan
+2025-06-21 16:57:43 INFO Multimodal (single component) AOCC mean: 0.0385
+2025-06-21 16:57:43 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:57:43 INFO AOCC mean: 0.0385
+2025-06-21 16:57:43 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:57:48 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 16:57:48 INFO FeHistory: [ 1.51709187e+06  1.04792494e+06  1.63960181e+06 ... -3.56654616e+02
+ -3.56654616e+02 -3.56654616e+02]
+2025-06-21 16:57:48 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:57:48 INFO Unimodal AOCC mean: nan
+2025-06-21 16:57:48 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-21 16:57:48 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:57:48 INFO AOCC mean: 0.0000
+2025-06-21 16:57:48 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:57:54 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 16:57:54 INFO FeHistory: [1597799.62424905  414058.20159356 2012862.82593395 ...   22890.92896495
+   22890.92897238   22890.92896352]
+2025-06-21 16:57:54 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:57:54 INFO Unimodal AOCC mean: nan
+2025-06-21 16:57:54 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-21 16:57:54 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:57:54 INFO AOCC mean: 0.0000
+2025-06-21 16:57:54 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:58:04 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.3187
+2025-06-21 16:58:04 INFO FeHistory: [681048.55236991 687972.94527523 681048.55236991 ...   1466.88623497
+   -884.73032983   -868.98702505]
+2025-06-21 16:58:04 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:58:04 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalOptimizerImproved
+import numpy as np
+import random
+class AdaptiveMultimodalOptimizerImproved:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.tabu_list = []  # Tabu list to avoid revisiting recent solutions
+        self.tabu_length = 10 # Length of the tabu list
+
+        self.perturbation_strength = 0.5 # Initial perturbation strength, adaptive
+        self.local_search_iterations = 10 # Number of iterations for local search
+        self.temperature = 1.0 # Initial temperature for simulated annealing
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        while self.eval_count < self.budget:
+            current_solution = self.best_solution_overall.copy()
+                                
+            # Local Search
+            for _ in range(self.local_search_iterations):
+                neighbor = self._generate_neighbor(current_solution)
+                neighbor_fitness = objective_function(neighbor.reshape(1, -1))[0]
+                self.eval_count += 1
+
+                if self._accept(neighbor_fitness, self._fitness(current_solution, objective_function), self.temperature):
+                    current_solution = neighbor
+
+                if neighbor_fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = neighbor_fitness
+                    self.best_solution_overall = neighbor
+                    self.tabu_list = [] # Reset tabu list upon finding a new global best
+
+            # Check for stagnation and apply perturbation
+            if self._is_stagnant(current_solution):
+                current_solution = self._perturb(current_solution)
+            self.temperature *= 0.95 # Cool down the temperature
+
+            # Add solution to tabu list
+            self._update_tabu_list(current_solution)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'perturbation_strength': self.perturbation_strength,
+            'final_temperature': self.temperature
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _generate_neighbor(self, solution):
+        neighbor = solution.copy()
+        index = random.randint(0, self.dim - 1)
+        neighbor[index] += np.random.normal(0, 0.1 * (self.upper_bounds[index] - self.lower_bounds[index]))  # Small Gaussian perturbation
+        neighbor = np.clip(neighbor, self.lower_bounds, self.upper_bounds)
+        return neighbor
+
+    def _perturb(self, solution):
+        perturbation = np.random.uniform(-self.perturbation_strength, self.perturbation_strength, self.dim) * (self.upper_bounds - self.lower_bounds)
+        new_solution = solution + perturbation
+        new_solution = np.clip(new_solution, self.lower_bounds, self.upper_bounds)
+        self.perturbation_strength *= 1.1 # Increase perturbation strength adaptively
+        return new_solution
+
+    def _is_stagnant(self, solution):
+        return np.allclose(solution, self.best_solution_overall, atol=1e-4)
+
+
+    def _update_tabu_list(self, solution):
+        self.tabu_list.append(tuple(solution))
+        if len(self.tabu_list) > self.tabu_length:
+            self.tabu_list.pop(0)
+
+    def _fitness(self, solution, objective_function):
+        return objective_function(solution.reshape(1, -1))[0]
+
+    def _accept(self, new_fitness, current_fitness, temperature):
+        if new_fitness < current_fitness:
+            return True
+        else:
+            delta_e = new_fitness - current_fitness
+            acceptance_probability = np.exp(-delta_e / temperature)
+            return random.random() < acceptance_probability
+
+
+
+
+
+
+
+
+2025-06-21 16:58:04 INFO Unimodal AOCC mean: nan
+2025-06-21 16:58:04 INFO Multimodal (single component) AOCC mean: 0.3187
+2025-06-21 16:58:04 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:58:04 INFO AOCC mean: 0.3187
+2025-06-21 16:58:04 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:58:09 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 16:58:09 INFO FeHistory: [1718358.87077592  793018.3830139  2123727.86240685 ...  939529.05631968
+  559489.06288258  628265.42185877]
+2025-06-21 16:58:09 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 16:58:09 INFO Unimodal AOCC mean: nan
+2025-06-21 16:58:09 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-21 16:58:09 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 16:58:09 INFO AOCC mean: 0.0000
+2025-06-21 16:58:09 INFO --- GNBG Problem Parameters for f9 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -884.736010
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-21 16:59:09 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:00:57 INFO Run function 9 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:00:57 INFO FeHistory: [ 1.54866952e+06  2.60193618e+06  5.48784862e+05 ... -4.90802938e+02
+ -4.90802938e+02 -4.90802938e+02]
+2025-06-21 17:00:57 INFO Expected Optimum FE: -884.7360096017693
+2025-06-21 17:00:57 INFO Unimodal AOCC mean: nan
+2025-06-21 17:00:57 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-21 17:00:57 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-21 17:00:57 INFO AOCC mean: 0.0000

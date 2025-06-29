@@ -1,0 +1,14 @@
+Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal Group (f1-f6): Problems with a single optimum, but often with ill-conditioned (narrow, rotated) landscapes that test an algorithm's exploitation and convergence efficiency.
+
+Multimodal Single-Component Group (f7-f15): Problems with a single main basin of attraction that is filled with numerous, often deep and rugged, local optima. This tests an algorithm's ability to escape local traps.
+
+Multimodal Multi-Component Group (f16-f24): The most difficult problems, featuring multiple, separate, and often deceptive basins of attraction. This rigorously tests an algorithm's global exploration capability.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+A simple algorithm might do well on one group but will fail completely on others. To guide the evolution towards a true generalist, our evaluation metric is a weighted AOCC fitness score, where performance on the most difficult Multi-Component problems (Group 3) is weighted most heavily.
+
+Therefore, an algorithm that makes even small progress on the hard, multi-component problems will be considered superior to one that is only good at the easier problems. Your primary goal is to design an algorithm with powerful global exploration capabilities, as this is the key to achieving a high weighted score.
+    

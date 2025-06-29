@@ -1,0 +1,3348 @@
+2025-06-21 17:08:13 INFO Initializing first population
+2025-06-21 17:08:13 INFO Initializing population from 7 seed files...
+2025-06-21 17:08:13 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:08:30 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0382
+2025-06-21 17:08:30 INFO FeHistory: [188.8986094  172.43211682 156.25473032 ... -68.39838268 -68.39838487
+ -68.39838088]
+2025-06-21 17:08:30 INFO Expected Optimum FE: -100
+2025-06-21 17:08:30 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-21 17:08:30 INFO Unimodal AOCC mean: nan
+2025-06-21 17:08:30 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:08:30 INFO Multimodal (multiple components) AOCC mean: 0.0382
+2025-06-21 17:08:30 INFO AOCC mean: 0.0382
+2025-06-21 17:08:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:08:49 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0207
+2025-06-21 17:08:49 INFO FeHistory: [160.74561597 169.06183332 173.11585532 ... -50.38773696 -50.71887869
+ -50.79059655]
+2025-06-21 17:08:49 INFO Expected Optimum FE: -100
+2025-06-21 17:08:49 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianMutationDE
+import numpy as np
+import random
+
+class AdaptiveGaussianMutationDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.fitness_values = None
+        self.mutation_scale = 0.8 # Initial mutation scale
+        self.mutation_scale_decay = 0.99 #decay factor for the mutation scale
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = self._initialize_population()
+        self.fitness_values = self._evaluate_population(objective_function)
+
+        self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population,self.fitness_values)
+
+        while self.eval_count < self.budget:
+            new_population = []
+            new_fitness_values = []
+
+            for i in range(self.population_size):
+                # Differential Mutation
+                a, b, c = self._select_different(i)
+                mutant = self.population[a] + self.mutation_scale * (self.population[b] - self.population[c])
+
+                #Adaptive Gaussian perturbation to escape local optima
+                mutant += np.random.normal(0, self.mutation_scale/2, self.dim)  
+
+                #Clipping
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                #Crossover
+                trial = np.where(np.random.rand(self.dim) < 0.5, mutant, self.population[i])
+
+                #Selection
+                trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                self.eval_count += 1
+                if trial_fitness < self.fitness_values[i]:
+                    new_population.append(trial)
+                    new_fitness_values.append(trial_fitness)
+                else:
+                    new_population.append(self.population[i])
+                    new_fitness_values.append(self.fitness_values[i])
+                
+                best_solution,best_fitness = self._find_best(np.array(new_population), np.array(new_fitness_values))
+                if best_fitness < self.best_fitness_overall:
+                    self.best_solution_overall = best_solution
+                    self.best_fitness_overall = best_fitness
+
+
+            self.population = np.array(new_population)
+            self.fitness_values = np.array(new_fitness_values)
+            self.mutation_scale *= self.mutation_scale_decay #Decay mutation scale
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _evaluate_population(self, objective_function):
+        population_reshaped = self.population.reshape(-1, self.dim)
+        fitness = objective_function(population_reshaped)
+        self.eval_count += self.population_size
+        return fitness
+
+    def _select_different(self, index):
+        a, b, c = random.sample(range(self.population_size), 3)
+        while a == index or b == index or c == index or a == b or a == c or b == c:
+            a, b, c = random.sample(range(self.population_size), 3)
+        return a, b, c
+
+    def _find_best(self,population,fitness_values):
+        best_index = np.argmin(fitness_values)
+        return population[best_index], fitness_values[best_index]
+2025-06-21 17:08:49 INFO Unimodal AOCC mean: nan
+2025-06-21 17:08:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:08:49 INFO Multimodal (multiple components) AOCC mean: 0.0207
+2025-06-21 17:08:49 INFO AOCC mean: 0.0207
+2025-06-21 17:08:49 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:09:06 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0682
+2025-06-21 17:09:06 INFO FeHistory: [180.63979464 230.0969799  182.79180719 ... -88.42559203 -88.42559317
+ -88.42559418]
+2025-06-21 17:09:06 INFO Expected Optimum FE: -100
+2025-06-21 17:09:06 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+2025-06-21 17:09:06 INFO Unimodal AOCC mean: nan
+2025-06-21 17:09:06 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:09:06 INFO Multimodal (multiple components) AOCC mean: 0.0682
+2025-06-21 17:09:06 INFO AOCC mean: 0.0682
+2025-06-21 17:09:06 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:09:25 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:09:25 INFO FeHistory: [196.47132924 179.07629416 181.61071879 ...  45.48769691  45.48769691
+  45.48769691]
+2025-06-21 17:09:25 INFO Expected Optimum FE: -100
+2025-06-21 17:09:25 INFO Unimodal AOCC mean: nan
+2025-06-21 17:09:25 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:09:25 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:09:25 INFO AOCC mean: 0.0000
+2025-06-21 17:09:25 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:09:58 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:09:58 INFO FeHistory: [180.55624321 166.30661139 180.55624321 ... 110.3349702  110.30919605
+ 148.22111085]
+2025-06-21 17:09:58 INFO Expected Optimum FE: -100
+2025-06-21 17:09:58 INFO Unimodal AOCC mean: nan
+2025-06-21 17:09:58 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:09:58 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:09:58 INFO AOCC mean: 0.0000
+2025-06-21 17:09:58 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:10:15 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0469
+2025-06-21 17:10:15 INFO FeHistory: [187.46142925 169.30968853 187.88676139 ... -88.24870234 -89.81556505
+ -91.46709417]
+2025-06-21 17:10:15 INFO Expected Optimum FE: -100
+2025-06-21 17:10:15 INFO Good algorithm:
+Algorithm Name: EnhancedArchiveGuidedDE
+import numpy as np
+import random
+class EnhancedArchiveGuidedDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = 10 * self.dim  # common heuristic
+        self.archive_size = 100
+        self.archive = []
+        self.population = None
+        self.F_scale = 0.5 #initial scaling factor
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness)]
+        self.best_fitness_overall = np.min(fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(self.population, fitness)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update archive
+            self.update_archive(offspring, offspring_fitness)
+
+            # Select best solutions for next generation
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness, offspring_fitness))
+            indices = np.argsort(combined_fitness)
+            self.population = combined_population[indices[:self.population_size]]
+            fitness = combined_fitness[indices[:self.population_size]]
+
+            #Update best solution
+            self.best_solution_overall = self.population[np.argmin(fitness)]
+            self.best_fitness_overall = np.min(fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'archive_size': len(self.archive)
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, population, fitness):
+        offspring = np.zeros((self.population_size, self.dim))
+        #Adaptive scaling factor
+        self.F_scale = 0.5 + 0.3*np.random.rand() #scale factor with slight variation
+
+        for i in range(self.population_size):
+            # Select pbest from archive (if available)
+            if self.archive:
+                pbest_index = np.random.choice(len(self.archive))
+                pbest = self.archive[pbest_index][0]
+            else:
+                pbest = population[np.argmin(fitness)]
+
+            a, b, c = random.sample(range(self.population_size), 3)
+            while a == i or b == i or c == i:
+                a, b, c = random.sample(range(self.population_size), 3)
+
+            offspring[i] = population[i] + self.F_scale * (pbest - population[i] + population[a] - population[b])
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds) #Boundary handling
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                #Prioritize diversity in archive
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1] or len(self.archive) < self.archive_size * 0.8 :
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+2025-06-21 17:10:15 INFO Unimodal AOCC mean: nan
+2025-06-21 17:10:15 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:10:15 INFO Multimodal (multiple components) AOCC mean: 0.0469
+2025-06-21 17:10:15 INFO AOCC mean: 0.0469
+2025-06-21 17:10:15 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:11:15 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:13:12 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0455
+2025-06-21 17:13:12 INFO FeHistory: [200.79321331 177.87213814 215.78157402 ... -73.86182916 -73.86182929
+ -73.86182922]
+2025-06-21 17:13:12 INFO Expected Optimum FE: -100
+2025-06-21 17:13:12 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEAwithArchive
+import numpy as np
+import random
+class AdaptiveGaussianSamplingEAwithArchive:
+    """
+    Combines adaptive Gaussian sampling with an archive to enhance exploration and exploitation in multimodal landscapes.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)
+        self.sigma_decay = 0.99
+        self.archive = []
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            parents = self._tournament_selection(population, fitness_values)
+            offspring = self._gaussian_recombination(parents)
+            offspring = self._adaptive_mutation(offspring)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            population, fitness_values = self._select_next_generation(
+                population, fitness_values, offspring, offspring_fitness
+            )
+
+            self.archive = self._update_archive(
+                np.vstack((population, offspring)),
+                np.concatenate((fitness_values, offspring_fitness))
+            )
+
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        return np.clip(population, self.lower_bounds, self.upper_bounds)
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size // 2
+        selected_parents = []
+
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+
+        return np.array(selected_parents)
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i + 1]
+            midpoint = (parent1 + parent2) / 2
+            child1 = midpoint + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = midpoint + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+    def _adaptive_mutation(self, offspring):
+        mutated = offspring + np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(mutated, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+2025-06-21 17:13:12 INFO Unimodal AOCC mean: nan
+2025-06-21 17:13:12 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:13:12 INFO Multimodal (multiple components) AOCC mean: 0.0455
+2025-06-21 17:13:12 INFO AOCC mean: 0.0455
+2025-06-21 17:16:07 INFO Started evolutionary loop, best so far: 0.06820813183187587
+2025-06-21 17:16:07 INFO Population length is: 20
+2025-06-21 17:16:07 INFO --- Performing Long-Term Reflection at Generation 1 ---
+2025-06-21 17:16:14 INFO Full response text: **Analysis:**
+
+Comparing `AdaptiveGaussianSamplingEA` (best) vs `AdaptiveDifferentialEvolutionWithClustering` (worst), we see that the adaptive Gaussian sampling approach with tournament selection and Gaussian recombination outperforms the adaptive Differential Evolution with clustering. The Gaussian approach seems better suited for the ill-conditioned landscapes, and the adaptive sigma helps the algorithm fine-tune its search.  The clustering approach in the worst algorithm may not be effective in all GNBG functions, potentially causing premature convergence or unnecessary function evaluations.
+
+`(second best) EnhancedArchiveGuidedDE` vs `AdaptiveMultimodalOptimizerImproved` (second worst):  `EnhancedArchiveGuidedDE` leverages an archive to maintain diversity and guide the search, enhancing exploration, while `AdaptiveMultimodalOptimizerImproved` relies on a tabu list and local search, which might be less effective in high-dimensional, rugged landscapes. The archive in `EnhancedArchiveGuidedDE` proves beneficial for handling multiple basins.  The local search aspect of the second worst is not as robust as the archive-based guidance.
+
+Comparing `AdaptiveGaussianSamplingEA` (1st) vs `EnhancedArchiveGuidedDE` (2nd), we see that adaptive Gaussian sampling provides better performance than using differential evolution with an archive. This could indicate that the Gaussian mutation, despite the simpler strategy, is better at navigating the narrow valleys present in some GNBG functions. The archive-based approach in `EnhancedArchiveGuidedDE` shows good exploration but may not be as effective in exploiting promising regions.
+
+`(3rd) AdaptiveGaussianSamplingEAwithArchive` vs `(4th) AdaptiveGaussianSamplingEA`:  The addition of an archive in the third-ranked algorithm offers improved performance compared to the simpler Gaussian sampling strategy. This highlights the benefit of incorporating mechanisms to maintain exploration and diversity in multimodal landscapes.  However, there is a diminishing return since both are relatively close.
+
+
+Comparing `AdaptiveDifferentialEvolutionWithClustering` (second worst) vs `AdaptiveDifferentialEvolutionWithEnhancedInitialization` (worst), we observe that even with different clustering techniques (KMeans vs hierarchical clustering), the adaptive Differential Evolution algorithm consistently underperforms.  The enhanced initialization in the worst algorithm doesn't provide sufficient advantage.  The adaptive parameter adjustment does not compensate for the ineffective exploration of the search space.
+
+Overall: The top-performing algorithms effectively combine adaptive mutation strategies (Gaussian or adjusted DE parameters) with mechanisms to maintain diversity (archives or niching).  Simpler methods like only using Gaussian mutations or adaptive sigma adjustment are surprisingly competitive. The less successful algorithms often suffer from premature convergence or inefficient exploration in high dimensions.
+
+
+**Experience:**
+
+Adaptive mutation and maintaining population diversity are crucial for effectively navigating complex high-dimensional landscapes.  Simple, well-tuned methods can surprisingly outperform complex strategies if they effectively balance exploration and exploitation.  The choice of appropriate adaptive mechanisms should depend on the specific characteristics of the problem.
+
+2025-06-21 17:16:15 INFO Full response text: * **Keywords:** Adaptive mutation, population diversity, exploration-exploitation balance, problem-specific heuristics.
+
+* **Advice:**  Focus on designing heuristics that dynamically adjust mutation rates and selection pressures based on problem characteristics (e.g., landscape ruggedness, dimensionality).  Empirically evaluate different balance strategies (e.g., ε-greedy, Boltzmann exploration).  Consider incorporating problem-specific knowledge into the heuristic design.
+
+* **Avoid:**  Generic, one-size-fits-all approaches. Overly complex heuristics without rigorous justification or empirical validation.  Ignoring the interplay between exploration and exploitation.
+
+* **Explanation:** Effective heuristics require a delicate balance.  A tailored approach, adapting to the specific problem landscape, will consistently outperform a generic algorithm.  Rigorous testing is crucial to validate the effectiveness of any new heuristic.
+
+2025-06-21 17:16:15 INFO Generating offspring via Crossover...
+2025-06-21 17:16:26 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:16:43 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:16:43 INFO FeHistory: [189.85028196 177.53051244 178.90680496 ...  57.53708963  42.35362634
+  41.47853035]
+2025-06-21 17:16:43 INFO Expected Optimum FE: -100
+2025-06-21 17:16:43 INFO Unimodal AOCC mean: nan
+2025-06-21 17:16:43 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:16:43 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:16:43 INFO AOCC mean: 0.0000
+2025-06-21 17:16:50 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:16:50 ERROR Can not run the algorithm
+2025-06-21 17:16:50 INFO Run function 24 complete. FEHistory len: 21, AOCC: 0.0000
+2025-06-21 17:16:50 INFO FeHistory: [183.06306352 210.41069843 186.50191297 181.96747374 208.38586398
+ 192.47327866 182.61497347 160.22534664 187.47575264 166.87716189
+ 186.83259716 170.27574434 156.08896696 152.13890514 227.85437122
+ 139.27479575 167.55988259 199.31322561 198.35552606 190.75386718
+ 168.56182074]
+2025-06-21 17:16:50 INFO Expected Optimum FE: -100
+2025-06-21 17:16:50 INFO Unimodal AOCC mean: nan
+2025-06-21 17:16:50 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:16:50 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:16:50 INFO AOCC mean: 0.0000
+2025-06-21 17:16:57 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:17:24 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:17:24 INFO FeHistory: [175.38598789 194.64072804 184.71862796 ... 164.54523814 152.98822432
+ 116.52235874]
+2025-06-21 17:17:24 INFO Expected Optimum FE: -100
+2025-06-21 17:17:24 INFO Unimodal AOCC mean: nan
+2025-06-21 17:17:24 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:17:24 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:17:24 INFO AOCC mean: 0.0000
+2025-06-21 17:17:32 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:17:48 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0276
+2025-06-21 17:17:48 INFO FeHistory: [103.97789317 207.27181693 187.49591771 ... -68.09964627 -68.04453
+ -64.79883528]
+2025-06-21 17:17:48 INFO Expected Optimum FE: -100
+2025-06-21 17:17:48 INFO Good algorithm:
+Algorithm Name: ArchiveGuidedGaussianAdaptiveEA
+import numpy as np
+
+class ArchiveGuidedGaussianAdaptiveEA:
+    """
+    Combines Gaussian mutation with an archive for diversity and adaptive sigma for exploitation.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = budget
+        self.dim = dim
+        self.lower_bounds = np.array(lower_bounds)
+        self.upper_bounds = np.array(upper_bounds)
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200  # Size of the archive
+        self.archive = np.empty((0, dim))
+        self.archive_fitness = np.array([])
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize population
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+        self.update_best(self.population, fitness_values)
+
+        while self.eval_count < self.budget:
+            # Gaussian Mutation with adaptive sigma
+            parents = self.tournament_selection(fitness_values, k=5)
+            offspring = self.gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            self.update_best(offspring, offspring_fitness)
+
+
+            # Update archive
+            self.update_archive(offspring, offspring_fitness)
+
+            #Adaptive Sigma (reduce exploration over time)
+            self.sigma *= 0.995
+
+            #Select from population and archive
+            combined_pop = np.concatenate((self.population, self.archive))
+            combined_fit = np.concatenate((fitness_values, self.archive_fitness))
+            sorted_indices = np.argsort(combined_fit)
+            self.population = combined_pop[sorted_indices[:self.population_size]]
+            fitness_values = combined_fit[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+    def update_best(self, solutions, fitnesses):
+        for i, fitness in enumerate(fitnesses):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = solutions[i]
+
+    def update_archive(self, solutions, fitnesses):
+        for i, solution in enumerate(solutions):
+            if len(self.archive) < self.archive_size:
+                self.archive = np.vstack((self.archive, solution))
+                self.archive_fitness = np.append(self.archive_fitness, fitnesses[i])
+            else:  #Check for replacement in archive
+                worst_index = np.argmax(self.archive_fitness)
+                if fitnesses[i] < self.archive_fitness[worst_index]:
+                    self.archive[worst_index] = solution
+                    self.archive_fitness[worst_index] = fitnesses[i]
+
+2025-06-21 17:17:48 INFO Unimodal AOCC mean: nan
+2025-06-21 17:17:48 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:17:48 INFO Multimodal (multiple components) AOCC mean: 0.0276
+2025-06-21 17:17:48 INFO AOCC mean: 0.0276
+2025-06-21 17:17:57 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:17:57 ERROR Can not run the algorithm
+2025-06-21 17:17:57 INFO Run function 24 complete. FEHistory len: 103, AOCC: 0.0000
+2025-06-21 17:17:57 INFO FeHistory: [171.99408333 184.84731475 204.41816633 201.98329883 203.76473213
+ 149.69442369 195.44034502 203.61881529 196.00944278 193.34874741
+ 199.63721014 208.28947125 209.28219974 234.78390127 164.95056626
+ 209.90266361 206.37258166 151.5631085  152.30625636 207.57867944
+ 152.29801704 186.71446899 168.80292994 190.85064512 179.89861172
+ 200.78682918 181.90898143 201.67552614 177.65597295 171.4208475
+ 211.07887422 211.64957812 181.91974228 199.3293859  204.72431234
+ 177.14322677 164.7815001  224.66805829 183.0154246  181.67568545
+ 225.01129273 180.37052114 177.06338802 162.2283409  167.25032781
+ 211.26058871 218.93066724 222.29649591 194.91289739 178.61227297
+ 177.3691812  191.18681189 209.68323538 140.44381792 182.08397124
+ 214.58971101 212.50518668 184.4518854  228.18173966 170.97632419
+ 213.09818409 207.54719254 197.42682508 156.66573033 176.17429573
+ 187.56447238 180.83928475 203.89713469 153.78313931 165.96156896
+ 182.90687391 202.26683613 198.28389582 194.02150918 198.86440472
+ 181.7765964  178.08686766 211.17607358 148.7353511  203.75738989
+ 190.14009985 180.95290832 183.15254856 177.25100201 219.20319136
+ 162.69239559 198.30777457 197.10291825 162.92675856 205.18037706
+ 174.34862089 199.78968183 171.72607523 165.23756761 185.19112681
+ 164.2639846  188.97814571 177.57378641 195.4969417  164.33283917
+ 153.73853414 195.97731944 190.64035361]
+2025-06-21 17:17:57 INFO Expected Optimum FE: -100
+2025-06-21 17:17:57 INFO Unimodal AOCC mean: nan
+2025-06-21 17:17:57 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:17:57 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:17:57 INFO AOCC mean: 0.0000
+2025-06-21 17:18:08 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:18:08 ERROR Can not run the algorithm
+2025-06-21 17:18:09 INFO Run function 24 complete. FEHistory len: 200, AOCC: 0.0000
+2025-06-21 17:18:09 INFO FeHistory: [186.86342398 199.4316454  177.62169789 164.11285572 221.30488063
+ 206.94322444 170.85585808 215.44178717 201.18642898 188.16698249
+ 154.98650892 180.86715891 188.97852801 202.27176482 209.69811435
+ 180.18064235 170.59323197 231.67173759 201.03160479 196.71628926
+ 192.13572288 180.53416005 183.56596642 167.57280529 184.88615811
+ 148.03202711 206.82700687 199.29962144 190.71863224 158.67809501
+ 216.61494357 241.52244113 208.64336724 187.1100587  191.32346379
+ 172.34071749 206.95619886 191.42279276 194.79823796 171.4774135
+ 194.46866044 199.44865016 154.08894117 214.46326769 204.65040157
+ 166.92096292 189.96913362 190.8357158  203.12317257 186.06161621
+ 198.78611856 189.11812014 184.02307641 205.16958286 170.91568827
+ 183.83267842 201.5245658  188.03067044 189.03185879 188.54013672
+ 218.31638722 212.11679864 225.26863415 210.27978442 162.51349489
+ 178.93291082 190.82134403 187.75947285 209.47062139 194.8271054
+ 227.49618065 200.59695083 218.82413916 167.6752796  179.73854692
+ 175.58977166 167.3374399  175.20251696 183.06062219 211.24710897
+ 191.46398903 154.95015261 161.69347368 200.84073538 170.40072392
+ 220.58980601 194.91870966 212.61822046 193.32699238 220.15198012
+ 188.05551749 202.58333752 178.95336272 155.05661575 222.07266497
+ 172.88459964 160.26405646 190.86163288 203.55121535 211.12512271
+ 172.83521195 201.01731988 179.87131554 176.07630527 178.4644945
+ 144.99527648 111.63762032 155.28852448 197.86801238 157.3254295
+ 155.05689068 185.63567067 169.01271886 207.82706585 169.26439544
+ 146.90566037 182.82333585 220.82531568 173.34618426 174.84925764
+ 154.14745212 187.55765622 165.14456815 169.0418296  187.18085842
+ 130.19355568 166.54837906 195.30642637 179.75138633 140.18410649
+ 195.74493035 179.2064951  182.35245781 166.96876996 163.78178298
+ 196.20417161 182.48039491 173.55667938 178.00036573 181.44274293
+ 180.14183471 171.94725866 164.44599549 169.22346293 174.75997701
+ 166.75816758 132.29898736 177.61383304 193.23619873 180.64570515
+ 152.25263555 186.29058018 170.1270653  165.84074537 132.10894627
+ 167.26749158 172.73342975 165.92044537 194.89804127 170.64289433
+ 179.42966119 182.24155131 173.42248194 185.75719769 199.83352947
+ 183.92673293 191.71979396 149.60918878 195.10435381 174.15402507
+ 185.61972492 144.87988559 186.70591141 133.74229158 150.11408635
+ 176.86191235 163.14901044 141.43420406 123.70949649 163.85164675
+ 171.58738136 161.30823161 150.84157626 163.42265693 172.55685953
+ 169.773566   157.89099783 208.11349499 168.52144521 166.82490567
+ 175.06313755 168.71165543 163.50771024 163.48730037 168.3254098
+ 175.90974794 170.19468635 173.33994837 149.05930673 138.83339999]
+2025-06-21 17:18:09 INFO Expected Optimum FE: -100
+2025-06-21 17:18:09 INFO Unimodal AOCC mean: nan
+2025-06-21 17:18:09 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:18:09 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:18:09 INFO AOCC mean: 0.0000
+2025-06-21 17:18:16 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:18:39 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0012
+2025-06-21 17:18:39 INFO FeHistory: [173.40402569 175.78826085 201.25142563 ...  17.7066635   16.06349231
+  25.28155303]
+2025-06-21 17:18:39 INFO Expected Optimum FE: -100
+2025-06-21 17:18:39 INFO Unimodal AOCC mean: nan
+2025-06-21 17:18:39 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:18:39 INFO Multimodal (multiple components) AOCC mean: 0.0012
+2025-06-21 17:18:39 INFO AOCC mean: 0.0012
+2025-06-21 17:18:47 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:19:04 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0152
+2025-06-21 17:19:04 INFO FeHistory: [174.35142466 216.40619177 201.87346016 ... -56.68324967 -57.02106632
+ -59.17163944]
+2025-06-21 17:19:04 INFO Expected Optimum FE: -100
+2025-06-21 17:19:04 INFO Unimodal AOCC mean: nan
+2025-06-21 17:19:04 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:19:04 INFO Multimodal (multiple components) AOCC mean: 0.0152
+2025-06-21 17:19:04 INFO AOCC mean: 0.0152
+2025-06-21 17:19:16 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:19:16 ERROR Can not run the algorithm
+2025-06-21 17:19:16 INFO Run function 24 complete. FEHistory len: 151, AOCC: 0.0000
+2025-06-21 17:19:16 INFO FeHistory: [206.6309192  218.24727264 177.35006988 209.28959221 217.82492564
+ 194.20390413 169.57320626 196.87838034 194.96670209 184.45934444
+ 200.87912404 197.97372259 202.84417864 189.46252244 175.95903612
+ 196.53734786 197.79386267 214.17756977 176.7109292  211.35703729
+ 197.02462624 192.52902613 184.12166035 183.84264541 196.64628699
+ 192.6295517  196.6998013  199.79538396 197.19382617 207.95111246
+ 195.42771001 199.16721158 197.68662202 174.12674668 185.18647445
+ 207.70031684 240.07273008 185.07709222 190.3228439  193.76985844
+ 194.69905193 179.24515478 214.02516158 201.84515506 160.59600529
+ 211.09564481 171.43009833 196.41768958 205.04998381 197.39119299
+ 207.26626871 185.9775242  216.50125073 193.1399656  212.91626744
+ 209.3452459  209.81304357 227.53739037 227.21780809 191.96931795
+ 221.90072366 211.66571742 213.28947397 171.28898141 226.83898088
+ 189.88836313 195.37193413 188.22898863 207.68475737 189.05032223
+ 191.36736136 226.07803435 191.88139017 194.42059214 219.42261233
+ 166.77087471 169.45707881 200.57484644 218.09238512 138.51101932
+ 198.08280679 217.66251991 231.62186702 197.96871798 198.02666795
+ 181.59762551 185.08447453 196.12634648 200.61761625 205.07461273
+ 231.82333119 191.76619172 184.38105889 186.15112713 236.61617485
+ 208.63019194 183.89865485 195.36613607 174.81798052 224.20051244
+ 203.43811335 193.04899073 198.38639014 188.43514142 229.93636184
+ 196.46740199 222.06868006 171.39816033 172.40917595 193.17727312
+ 202.68440639 201.12710465 186.50720662 218.1665546  193.85674745
+ 200.10624848 213.68298452 192.15440323 192.00647675 192.92424703
+ 203.69795714 190.37944522 194.73681252 191.42187949 180.34465858
+ 177.17773518 210.40150666 225.03457168 170.0717843  141.60407501
+ 156.62433542 190.63465592 170.12910593 202.66723336 192.31253529
+ 172.59573541 192.84358947 218.32395016 204.24392753 224.61000996
+ 167.40164002 204.23975685 221.54604836 218.3772715  163.28667357
+ 178.91585232 193.57423761 210.91331842 239.06385819 197.68871427
+ 183.91879675]
+2025-06-21 17:19:16 INFO Expected Optimum FE: -100
+2025-06-21 17:19:16 INFO Unimodal AOCC mean: nan
+2025-06-21 17:19:16 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:19:16 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:19:16 INFO AOCC mean: 0.0000
+2025-06-21 17:19:24 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:19:24 ERROR Can not run the algorithm
+2025-06-21 17:19:25 INFO Run function 24 complete. FEHistory len: 300, AOCC: 0.0000
+2025-06-21 17:19:25 INFO FeHistory: [181.80546816 204.51017172 163.21886632 182.69528903 199.36574396
+ 168.29115783 173.08687604 182.51041028 192.99202866 223.25468982
+ 178.0617029  181.2464541  218.3575466  152.82119871 163.94340824
+ 152.55388853 175.0716953  213.73600201 175.74776383 210.39651894
+ 196.5885398  182.19308186 166.49246888 188.82367051 199.14160232
+ 207.00409821 199.32422162 198.33815578 187.61105899 179.89803804
+ 210.86645852 191.86305173 172.61222762 196.44049546 185.48958482
+ 196.15277033 142.37021707 181.83551307 172.72805009 200.90475329
+ 164.70787483 209.30244398 194.96681074 198.96488231 189.33061417
+ 189.48947007 192.74023903 147.35647128 187.1454795  135.3414202
+ 187.0211194  195.672947   173.64342397 174.33511465 141.89309788
+ 219.03557895 173.2661972  147.17903446 182.04572498 182.62166768
+ 183.62582992 193.306258   189.07786166 190.59610889 192.94064596
+ 195.02946612 217.60322273 188.39505693 175.02925868 228.63537178
+ 230.04147346 177.07402    176.30132944 205.64011191 177.04529146
+ 158.79158266 190.85802668 192.79904259 219.67643828 198.32099215
+ 152.34071801 195.9774203  187.26242359 163.66468045 179.78130547
+ 167.23690844 176.43993543 204.68233875 228.26438111 196.78772122
+ 166.14860677 202.97221233 167.14658245 195.69030882 215.34031016
+ 177.6900602  190.38893651 197.38678325 177.91714977 170.23497177
+ 197.99113931 223.21340688 204.60322448 210.85092563 211.78371213
+ 190.29403362 179.50984076 170.72780656 216.52512695 210.91031803
+ 214.67903535 170.25198833 220.62368977 186.73831203 203.21184295
+ 232.60037794 178.46779846 219.82014514 179.0961297  209.12832534
+ 210.60311183 226.06642222 220.10670693 205.07761116 215.58789634
+ 208.30084949 177.59228884 193.27989117 182.18197462 209.32890242
+ 229.84857347 235.86197736 210.98273022 201.44190109 201.68674093
+ 197.40473791 192.83095543 205.60302645 231.32679216 194.79873766
+ 210.68287807 198.34258674 226.98624548 163.73786724 213.08748768
+ 229.36502487 206.68223505 189.72659563 223.75026673 211.32787614
+ 208.32809629 215.81335739 212.6829035  187.94871584 208.40002618
+ 241.29024296 214.94243541 198.83490787 216.16556397 186.94919117
+ 234.31207768 226.58496775 193.86773557 224.32480523 225.36452383
+ 210.0743661  260.97363793 210.42314476 168.28691381 206.81919331
+ 229.49121651 195.5794941  207.76521092 202.46250943 194.97368711
+ 201.50847366 212.2601527  238.84049613 218.07417266 211.30254708
+ 213.88751884 180.69657441 240.37472341 197.37237631 194.29783853
+ 213.24779948 211.79503193 212.92227358 207.23714711 199.86397457
+ 207.40518144 223.82023053 180.1387169  195.06410018 199.96995351
+ 164.28636758 152.111857   212.62679599 237.83157382 192.05082749
+ 224.04321275 214.20121426 214.35741545 199.42913588 211.01808259
+ 190.30104737 205.06862167 136.99841254 186.46438095 181.10573285
+ 242.17404656 179.05740656 220.87093305 195.94065159 212.25846583
+ 163.25726329 232.6406169  165.47258339 176.75967521 208.61620548
+ 186.74062996 234.96394343 212.97213884 233.35756219 226.26160747
+ 218.92397945 173.37725274 241.30484199 218.44072368 211.69031416
+ 244.45040188 217.93971964 201.51241019 250.95019706 193.14887028
+ 182.44837375 206.26926392 190.96607201 196.03221469 227.26330794
+ 204.01631777 196.39136888 243.37933515 221.05006826 221.66745987
+ 206.2520723  217.87274969 190.44888102 227.05896291 206.35253155
+ 163.937391   204.83247951 191.60514523 184.81913056 229.79411547
+ 204.50031702 209.44868078 178.43278848 196.73568391 198.40594432
+ 177.08533214 184.00298207 214.86330273 222.74232643 227.14717304
+ 228.82166879 198.64520461 206.22848705 206.86648742 211.76206314
+ 228.95843085 213.77740977 241.95656884 234.94720241 195.08683635
+ 193.81902756 230.49077582 203.96844495 258.76836391 220.82441592
+ 213.69830269 259.72862517 204.93691806 224.9958661  183.72356179
+ 233.23166587 214.48313054 167.39474519 265.82555245 226.80853409
+ 213.74618784 233.7572098  206.88039143 216.57605442 178.78059301
+ 182.7330716  184.2907922  192.20550453 164.18992615 180.04603778]
+2025-06-21 17:19:25 INFO Expected Optimum FE: -100
+2025-06-21 17:19:25 INFO Unimodal AOCC mean: nan
+2025-06-21 17:19:25 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:19:25 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:19:25 INFO AOCC mean: 0.0000
+2025-06-21 17:19:25 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+### Better code
+AdaptiveDifferentialEvolution
+import numpy as np
+import random
+
+class AdaptiveDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        self.population_size = 100  # Adjust as needed
+        self.num_populations = 5 #Multiple populations for exploration
+        self.F = 0.8 #Initial mutation factor
+        self.CR = 0.9 #Initial crossover rate
+        self.populations = [np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim)) for _ in range(self.num_populations)]
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_populations):
+                fitness_values = objective_function(self.populations[i])
+                self.eval_count += self.population_size
+
+                for j in range(self.population_size):
+                    if fitness_values[j] < self.best_fitness_overall:
+                        self.best_fitness_overall = fitness_values[j]
+                        self.best_solution_overall = self.populations[i][j].copy()
+
+                # Adaptive parameters
+                self.F = max(0.1, self.F - 0.01*(np.mean(fitness_values) > self.best_fitness_overall))
+                self.CR = max(0.1, self.CR - 0.01*(np.mean(fitness_values) > self.best_fitness_overall))
+
+
+                #Differential Evolution
+                new_population = np.zeros_like(self.populations[i])
+                for j in range(self.population_size):
+                    a, b, c = random.sample(range(self.population_size), 3)
+                    while a == j or b == j or c == j:
+                        a, b, c = random.sample(range(self.population_size), 3)
+
+                    mutant = self.populations[i][a] + self.F * (self.populations[i][b] - self.populations[i][c])
+
+                    crossover_mask = np.random.rand(self.dim) < self.CR
+                    trial = np.where(crossover_mask, mutant, self.populations[i][j])
+
+                    trial = np.clip(trial, self.lower_bounds, self.upper_bounds) #Bound constraints
+
+                    trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                    if trial_fitness < fitness_values[j]:
+                        new_population[j] = trial
+                    else:
+                        new_population[j] = self.populations[i][j]
+
+                self.populations[i] = new_population
+
+                # Migration between populations (helps avoid local optima)
+                if self.eval_count < self.budget * 0.8: #Reduce migration as the budget gets exhausted
+                    donor_population_index = random.randint(0, self.num_populations - 1)
+                    while donor_population_index == i:
+                       donor_population_index = random.randint(0, self.num_populations - 1)
+                    
+                    random_index = random.randint(0, self.population_size - 1)
+                    self.populations[i][random_index] = self.populations[donor_population_index][random.randint(0, self.population_size-1)]
+
+
+        if self.best_solution_overall is None:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+### Worse code
+AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+
+### Analyze & experience
+- Comparing `AdaptiveGaussianSamplingEA` (best) vs `AdaptiveDifferentialEvolutionWithClustering` (worst), we see that the adaptive Gaussian sampling approach with tournament selection and Gaussian recombination outperforms the adaptive Differential Evolution with clustering. The Gaussian approach seems better suited for the ill-conditioned landscapes, and the adaptive sigma helps the algorithm fine-tune its search.  The clustering approach in the worst algorithm may not be effective in all GNBG functions, potentially causing premature convergence or unnecessary function evaluations.
+
+`(second best) EnhancedArchiveGuidedDE` vs `AdaptiveMultimodalOptimizerImproved` (second worst):  `EnhancedArchiveGuidedDE` leverages an archive to maintain diversity and guide the search, enhancing exploration, while `AdaptiveMultimodalOptimizerImproved` relies on a tabu list and local search, which might be less effective in high-dimensional, rugged landscapes. The archive in `EnhancedArchiveGuidedDE` proves beneficial for handling multiple basins.  The local search aspect of the second worst is not as robust as the archive-based guidance.
+
+Comparing `AdaptiveGaussianSamplingEA` (1st) vs `EnhancedArchiveGuidedDE` (2nd), we see that adaptive Gaussian sampling provides better performance than using differential evolution with an archive. This could indicate that the Gaussian mutation, despite the simpler strategy, is better at navigating the narrow valleys present in some GNBG functions. The archive-based approach in `EnhancedArchiveGuidedDE` shows good exploration but may not be as effective in exploiting promising regions.
+
+`(3rd) AdaptiveGaussianSamplingEAwithArchive` vs `(4th) AdaptiveGaussianSamplingEA`:  The addition of an archive in the third-ranked algorithm offers improved performance compared to the simpler Gaussian sampling strategy. This highlights the benefit of incorporating mechanisms to maintain exploration and diversity in multimodal landscapes.  However, there is a diminishing return since both are relatively close.
+
+
+Comparing `AdaptiveDifferentialEvolutionWithClustering` (second worst) vs `AdaptiveDifferentialEvolutionWithEnhancedInitialization` (worst), we observe that even with different clustering techniques (KMeans vs hierarchical clustering), the adaptive Differential Evolution algorithm consistently underperforms.  The enhanced initialization in the worst algorithm doesn't provide sufficient advantage.  The adaptive parameter adjustment does not compensate for the ineffective exploration of the search space.
+
+Overall: The top-performing algorithms effectively combine adaptive mutation strategies (Gaussian or adjusted DE parameters) with mechanisms to maintain diversity (archives or niching).  Simpler methods like only using Gaussian mutations or adaptive sigma adjustment are surprisingly competitive. The less successful algorithms often suffer from premature convergence or inefficient exploration in high dimensions.
+- * **Keywords:** Adaptive mutation, population diversity, exploration-exploitation balance, problem-specific heuristics.
+
+* **Advice:**  Focus on designing heuristics that dynamically adjust mutation rates and selection pressures based on problem characteristics (e.g., landscape ruggedness, dimensionality).  Empirically evaluate different balance strategies (e.g., ε-greedy, Boltzmann exploration).  Consider incorporating problem-specific knowledge into the heuristic design.
+
+* **Avoid:**  Generic, one-size-fits-all approaches. Overly complex heuristics without rigorous justification or empirical validation.  Ignoring the interplay between exploration and exploitation.
+
+* **Explanation:** Effective heuristics require a delicate balance.  A tailored approach, adapting to the specific problem landscape, will consistently outperform a generic algorithm.  Rigorous testing is crucial to validate the effectiveness of any new heuristic.
+
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-21 17:19:25 INFO Mutation prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+Current heuristics:
+AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+Now, think outside the box write a mutated function better than current version.
+You can use some hints below:
+- * **Keywords:** Adaptive mutation, population diversity, exploration-exploitation balance, problem-specific heuristics.
+
+* **Advice:**  Focus on designing heuristics that dynamically adjust mutation rates and selection pressures based on problem characteristics (e.g., landscape ruggedness, dimensionality).  Empirically evaluate different balance strategies (e.g., ε-greedy, Boltzmann exploration).  Consider incorporating problem-specific knowledge into the heuristic design.
+
+* **Avoid:**  Generic, one-size-fits-all approaches. Overly complex heuristics without rigorous justification or empirical validation.  Ignoring the interplay between exploration and exploitation.
+
+* **Explanation:** Effective heuristics require a delicate balance.  A tailored approach, adapting to the specific problem landscape, will consistently outperform a generic algorithm.  Rigorous testing is crucial to validate the effectiveness of any new heuristic.
+
+
+Output code only and enclose your code with Python code block: ```python ... ```.
+I'm going to tip $999K for a better solution!
+2025-06-21 17:20:08 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:20:08 ERROR Can not run the algorithm
+2025-06-21 17:20:08 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-21 17:20:08 INFO FeHistory: [156.07393666 158.81209209 207.48621661 195.54243745 182.13344689
+ 174.47901402 188.78058922 179.56815527 215.54843102 195.76990093
+ 211.78826593 173.57727485 186.19149559 193.3986871  212.43237371
+ 213.80032427 212.70597663 207.2616113  224.21380758 170.60618374
+ 167.4713195  175.58197776 193.36559879 213.12297553 165.63990629
+ 187.72540327 195.93231533 219.54459145 207.06865337 191.40883591
+ 191.21455009 179.89621129 148.82415359 221.4059113  224.73410362
+ 171.73675831 191.63957261 224.16416666 198.42342466 176.55516569
+ 198.05433069 193.19998658 167.74040781 160.04556133 213.43235185
+ 158.31304759 179.00916223 206.47330155 176.52358987 197.33916535
+ 182.77112746 182.76968492 224.52780426 189.71096949 211.27693936
+ 222.44142509 137.53031554 186.77701528 203.84831162 215.8048066
+ 167.18121905 214.91350097 176.83162471 140.90412857 201.27407942
+ 164.71630371 166.03981353 192.90424154 172.28388965 193.34919496
+ 207.81430698 182.96640739 185.3588292  198.14041015 173.24356224
+ 210.50445839 176.16719794 168.79409898 191.42137324 203.92501156
+ 143.06195869 212.34665105 179.47583598 221.05012509 197.68821209
+ 172.70232118 195.52072329 178.60846764 205.50119926 188.24149064
+ 173.40744007 201.04532076 216.43865147 146.18317325 195.00834933
+ 192.26559214 177.27258209 192.63826469 190.07028717 170.92027943
+ 188.99421979 179.82611854 199.05183928 181.57105745 195.12820992
+ 204.52579759 229.7561385  190.42426694 215.48413279 202.4557802
+ 200.48602907 184.79001622 193.06825535 194.60412823 226.33527372
+ 192.73568465 194.08411441 211.99226938 220.15692439 181.40897754
+ 228.78292803 169.1233473  183.28214472 227.40325537 209.66343626
+ 184.54904379 148.36057033 212.35917233 213.86604957 217.33967269
+ 219.87464339 190.7993453  238.14072507 194.8912257  204.65846013
+ 199.56652314 244.34944532 220.01567466 200.06280656 174.15685049
+ 188.15246951 199.31822022 196.3103822  182.08736004 212.55312382
+ 206.5628516  194.88270885 221.72029754 242.96202573 214.72386355
+ 197.45623957 210.66613905 150.91717316 216.69519855 234.70112159
+ 198.38685277 197.52981868 239.80316119 199.33267863 211.95504825
+ 194.94392423 207.86934036 204.8248639  205.04219849 233.7944192
+ 161.45193759 207.30482646 188.00005432 228.17118779 176.63179859
+ 205.78116014 217.46845086 182.9838629  224.64745399 167.47869475
+ 219.03458079 173.24428636 221.04134763 226.9675525  227.26812495
+ 218.98163952 189.33773665 188.62429519 199.95078493 241.53801903
+ 220.72945806 205.63023559 218.69317672 187.79411058 225.21975895
+ 200.8734656  194.63863625 195.42512884 205.08089525 232.22855178
+ 211.67645013 232.7317936  202.22845322 222.6286501  205.64948051
+ 186.66968231]
+2025-06-21 17:20:08 INFO Expected Optimum FE: -100
+2025-06-21 17:20:08 INFO Unimodal AOCC mean: nan
+2025-06-21 17:20:08 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:20:08 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:20:08 INFO AOCC mean: 0.0000
+2025-06-21 17:20:08 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:20:30 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:20:30 INFO FeHistory: [171.75544302 212.76053507 172.04032404 ... 217.33855546 227.84392579
+ 237.29200333]
+2025-06-21 17:20:30 INFO Expected Optimum FE: -100
+2025-06-21 17:20:30 INFO Unimodal AOCC mean: nan
+2025-06-21 17:20:30 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:20:30 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:20:30 INFO AOCC mean: 0.0000
+2025-06-21 17:20:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:20:50 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:20:50 INFO FeHistory: [189.95232301 184.29540367 181.32768875 ...  68.81179914  95.26923513
+  72.18770493]
+2025-06-21 17:20:50 INFO Expected Optimum FE: -100
+2025-06-21 17:20:50 INFO Unimodal AOCC mean: nan
+2025-06-21 17:20:50 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:20:50 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:20:50 INFO AOCC mean: 0.0000
+2025-06-21 17:20:50 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:20:50 ERROR Can not run the algorithm
+2025-06-21 17:20:50 INFO Run function 24 complete. FEHistory len: 100, AOCC: 0.0000
+2025-06-21 17:20:50 INFO FeHistory: [144.70488462 206.6104661  168.28170462 169.29738665 175.0602633
+ 157.16170703 158.16098784 203.92862539 180.82531112 192.61876714
+ 162.31475446 194.56224159 194.67742853 210.90966949 198.77854445
+ 178.35750896 159.06763137 208.65116852 196.22465861 207.88364772
+ 142.26589232 184.07925207 192.97351624 209.03304381 212.10253909
+ 192.33237801 198.04789582 175.40256145 213.09235547 198.89217848
+ 227.0013206  219.83471715 187.47055753 177.90932673 175.25834078
+ 196.32705715 214.77666742 229.50452802 170.23076691 211.29667934
+ 191.0893677  175.11455446 152.30925431 205.43246169 167.60442914
+ 197.52979969 193.99788793 170.54216458 184.81868548 179.33226431
+ 199.50131772 193.3397947  167.36511678 196.47012668 178.85504824
+ 158.163991   221.55618185 200.44679433 189.58502417 192.40199266
+ 210.46829658 192.07836716 157.11295092 209.06505777 180.13055953
+ 193.99323049 196.87610969 184.19958872 195.25693193 169.36697557
+ 160.21204252 192.58515173 192.39062476 188.3428551  202.90978735
+ 182.39398149 168.57728665 200.23987811 206.79941375 186.85142921
+ 186.52549903 209.81961301 215.3734757  172.60739316 213.71840987
+ 192.51736844 192.75084545 196.15623623 192.60600277 187.55835506
+ 190.950101   160.07612747 198.07234136 205.18093228 200.73017222
+ 173.36376916 172.33653254 174.79322203 163.62774737 203.92213063]
+2025-06-21 17:20:50 INFO Expected Optimum FE: -100
+2025-06-21 17:20:50 INFO Unimodal AOCC mean: nan
+2025-06-21 17:20:50 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:20:50 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:20:50 INFO AOCC mean: 0.0000
+2025-06-21 17:20:50 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:21:10 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:21:10 INFO FeHistory: [178.3285706  222.75262546 237.55864241 ... 216.68801824 198.63505077
+ 225.50375124]
+2025-06-21 17:21:10 INFO Expected Optimum FE: -100
+2025-06-21 17:21:10 INFO Unimodal AOCC mean: nan
+2025-06-21 17:21:10 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:21:10 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:21:10 INFO AOCC mean: 0.0000
+2025-06-21 17:21:10 INFO Generation 2, best so far: 0.06820813183187587
+2025-06-21 17:21:10 INFO Population length is: 11
+2025-06-21 17:21:10 INFO --- Performing Long-Term Reflection at Generation 2 ---
+2025-06-21 17:21:15 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveGaussianDEwithArchive` (Rank 1) vs (worst) `AdaptiveDifferentialEvolutionWithCauchyMutation` (Rank 10), we see a significant difference in the mutation strategy. Rank 1 uses a combination of adaptive Gaussian mutation and Differential Evolution, incorporating an archive to maintain diversity and exploit promising regions. Rank 10 uses only Cauchy mutation within a DE framework, lacking the archive and adaptive Gaussian component, which likely hinders its ability to escape local optima and maintain diversity.  (second best) `AdaptiveGaussianArchiveEA` (Rank 2) vs (second worst) `AdaptiveDifferentialEvolutionWithClustering` (Rank 8): Rank 2 effectively uses an archive to guide Gaussian mutation, but lacks the sophisticated DE mechanism of Rank 1. Rank 8 uses clustering, which can be computationally expensive and may not always improve performance. Comparing (1st) vs (2nd), we see that the addition of Differential Evolution significantly improves performance. (3rd) `AdaptiveGaussianDEwithArchive` (Rank 3) vs (4th) `ArchiveGuidedGaussianMutationDE` (Rank 4): Rank 3 directly uses DE and Gaussian mutation, while Rank 4 uses a simpler Gaussian approach without DE, leading to inferior performance. Comparing (second worst) vs (worst), we see that Rank 8 (Clustering) still outperforms Rank 10 (only Cauchy mutation). Overall: The top-performing algorithms consistently utilize archives, adaptive mutation strategies (Gaussian being superior to Cauchy in this context), and the robust framework provided by Differential Evolution.  Simple Gaussian mutation and the clustering approach demonstrated less effectiveness.
+
+**Experience:**
+
+Effective population generation for high-dimensional multimodal problems needs diverse exploration and focused exploitation mechanisms.  Adaptive mutation, guided by an archive and coupled with strong optimization frameworks like DE, proves crucial.  Carefully selecting mutation distributions and incorporating robust selection strategies is key to success.
+
+2025-06-21 17:21:16 INFO Full response text: * **Keywords:**  High-dimensional, multimodal, diversity, adaptive mutation, archive, selection, distribution, DE (Differential Evolution).
+
+* **Advice:** Focus on quantifiable metrics for evaluating diversity and exploitation/exploration balance.  Develop rigorous methods for selecting mutation distributions based on problem characteristics (e.g., dimensionality, modality).  Experiment with different archive management strategies (size, update frequency).  Benchmark against simple, well-tuned baselines.
+
+* **Avoid:** Vague statements like "complex strategies," "effective balance," and problem-dependent advice without concrete implementation details.  Avoid subjective judgments about complexity without empirical evidence.
+
+* **Explanation:** The goal is to move beyond qualitative observations towards a more rigorous, data-driven approach to heuristic design.  By focusing on measurable quantities and comparative analysis, we can create heuristics that are demonstrably superior and less susceptible to overfitting to specific problems.
+
+2025-06-21 17:21:16 INFO Generating offspring via Crossover...
+2025-06-21 17:21:28 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:21:46 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:21:46 INFO FeHistory: [126.71225977 199.49412658 188.08186969 ...  60.00470813  67.3697967
+  61.65301036]
+2025-06-21 17:21:46 INFO Expected Optimum FE: -100
+2025-06-21 17:21:46 INFO Unimodal AOCC mean: nan
+2025-06-21 17:21:46 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:21:46 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:21:46 INFO AOCC mean: 0.0000
+2025-06-21 17:21:56 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:22:17 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:22:17 INFO FeHistory: [169.41436333 165.69946948 184.73713303 ...  73.50375446  92.71597548
+  77.35777469]
+2025-06-21 17:22:17 INFO Expected Optimum FE: -100
+2025-06-21 17:22:17 INFO Unimodal AOCC mean: nan
+2025-06-21 17:22:17 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:22:17 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:22:17 INFO AOCC mean: 0.0000
+2025-06-21 17:22:27 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:23:27 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:25:35 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:25:35 INFO FeHistory: [209.89555888 196.62143114 227.48603147 ... 240.56869859 286.08297535
+ 231.43209863]
+2025-06-21 17:25:35 INFO Expected Optimum FE: -100
+2025-06-21 17:25:35 INFO Unimodal AOCC mean: nan
+2025-06-21 17:25:35 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:25:35 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:25:35 INFO AOCC mean: 0.0000
+2025-06-21 17:25:44 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:26:01 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:26:01 INFO FeHistory: [208.77260144 185.68894833 163.78821324 ...  65.38022281  65.78966372
+  41.96305215]
+2025-06-21 17:26:01 INFO Expected Optimum FE: -100
+2025-06-21 17:26:01 INFO Unimodal AOCC mean: nan
+2025-06-21 17:26:01 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:26:01 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:26:01 INFO AOCC mean: 0.0000
+2025-06-21 17:26:14 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:26:31 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:26:31 INFO FeHistory: [203.56684128 207.10639659 193.56270321 ... 154.03135162 152.91042872
+ 138.9484768 ]
+2025-06-21 17:26:31 INFO Expected Optimum FE: -100
+2025-06-21 17:26:31 INFO Unimodal AOCC mean: nan
+2025-06-21 17:26:31 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:26:31 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:26:31 INFO AOCC mean: 0.0000
+2025-06-21 17:26:43 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:27:43 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:29:49 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:29:49 INFO FeHistory: [221.15797034 208.47494238 180.6482574  ... 263.07050988 265.6433941
+ 222.31725685]
+2025-06-21 17:29:49 INFO Expected Optimum FE: -100
+2025-06-21 17:29:49 INFO Unimodal AOCC mean: nan
+2025-06-21 17:29:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:29:49 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:29:49 INFO AOCC mean: 0.0000
+2025-06-21 17:29:59 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:29:59 ERROR Can not run the algorithm
+2025-06-21 17:29:59 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-21 17:29:59 INFO FeHistory: [203.00147277 153.70245177 198.46762243 178.92981946 202.86422554
+ 155.2463071  193.89075099 197.48106901 181.65494885 187.09651684
+ 157.56060403 170.27737051 199.28987669 179.75590502 165.07909911
+ 156.08951205 173.85742071 210.56542355 197.69494624 216.54327644
+ 171.34749872 174.59948779 178.45821981 179.55003122 204.81697448
+ 197.12923937 180.56383509 198.51168618 204.00520494 201.95809579
+ 173.82788032 194.12602498 217.8183457  205.77171543 203.18831079
+ 216.58938246 172.84710216 173.4104371  215.0394559  178.16129431
+ 204.1485613  191.13145649 170.62745953 191.12542795 186.17474316
+ 198.57502881 149.33478318 195.7271542  167.18261039 212.939299
+ 202.09059737 168.44720086 181.44166233 180.61869124 195.17633768
+ 196.45762314 172.27262157 184.7081098  183.04424622 182.42737838
+ 208.06670526 196.54306974 208.68442815 177.55173668 218.92440106
+ 170.58221158 190.13190678 194.96284597 216.62073378 183.23659867
+ 178.01674785 180.22723568 201.03852034 203.90113637 157.79353933
+ 219.46942575 220.88828598 179.86146848 148.36499862 156.53447048
+ 177.36411926 179.99540657 183.40859402 193.17103676 212.31460983
+ 201.01819078 209.94371573 197.36245234 196.11386808 203.92480438
+ 201.95481549 165.6407768  173.56205657 176.41408442 184.61687333
+ 214.14348463 177.58501286 182.6367618  185.87147015 208.05028437
+ 218.5569158  214.11092617 219.4886605  188.36449489 170.75654968
+ 204.74967147 211.46457188 196.77859117 217.53821012 207.33689331
+ 222.62421127 203.7040556  210.84028282 196.3424234  220.10098901
+ 187.81487584 190.91432286 177.36129727 179.31372777 215.56288804
+ 205.04786402 211.97379502 206.95421433 222.21652197 206.83594017
+ 216.99653851 205.10515304 193.67710034 210.3725663  178.85682039
+ 191.5825146  201.60933505 224.32397598 200.80689359 186.74229596
+ 199.69639749 215.53167595 192.20919108 205.4047379  241.83871115
+ 202.33372769 166.80419624 209.56501219 246.09532315 194.31515374
+ 218.75227975 207.59560704 182.14562148 171.18754555 182.85301373
+ 207.70799641 246.77282717 178.81503514 210.39223687 219.29415971
+ 199.88252884 174.99821192 208.58429621 227.75013498 172.90448583
+ 196.86896497 175.23626696 238.54348862 237.56904599 231.65604687
+ 202.78051432 170.10378921 194.92864922 183.92055528 216.95783172
+ 206.63632156 220.09238016 203.38078903 259.91613513 214.89347862
+ 194.43886337 177.93315042 235.79742207 220.49583252 201.98253629
+ 212.30823563 231.54351307 156.88051413 207.8208685  215.64524935
+ 215.15913753 196.25379783 177.40415459 201.05671424 195.94153616
+ 199.37498504 238.00159736 201.51324695 198.42229406 209.39999405
+ 242.50596846 207.67020823 217.7934554  187.45766153 231.8812902
+ 226.60827251]
+2025-06-21 17:29:59 INFO Expected Optimum FE: -100
+2025-06-21 17:29:59 INFO Unimodal AOCC mean: nan
+2025-06-21 17:29:59 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:29:59 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:29:59 INFO AOCC mean: 0.0000
+2025-06-21 17:30:08 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:30:08 ERROR Can not run the algorithm
+2025-06-21 17:30:09 INFO Run function 24 complete. FEHistory len: 108, AOCC: 0.0000
+2025-06-21 17:30:09 INFO FeHistory: [173.49139192 170.02171553 205.2593882  174.25859668 162.85848909
+ 159.9550831  209.05077301 227.45577706 189.77390006 164.50808298
+ 193.26989518 158.16727229 200.737396   178.97461917 184.77068261
+ 173.30657422 164.31434069 190.86452075 176.97224104 182.12559232
+ 176.72929956 177.78774564 162.23329048 196.30506352 174.23502085
+ 185.93651473 171.18664915 164.65561533 170.09788569 170.95138535
+ 210.16903127 198.25272119 143.87534134 203.68321257 172.6701637
+ 201.83269479 215.51662752 206.09279994 153.94596024 231.08760762
+ 159.30205149 219.52343933 167.44759158 196.4686454  186.0167422
+ 202.59274379 193.46253594 210.03044263 193.73305831 221.11269327
+ 194.10314614 207.39093376 195.05297512 149.10017048 197.80931092
+ 200.95952987 211.25300822 173.79960216 181.73290896 192.74908054
+ 193.25615791 200.69364486 167.08080207 208.44462539 186.84413284
+ 193.41890794 160.62780394 183.76073385 207.86569559 150.79944603
+ 198.15973608 156.363893   209.56198076 170.20317765 177.10593072
+ 222.44962998 187.18543031 197.96873785 169.29817601 178.11688268
+ 178.28321197 205.16699784 194.81602078 186.75400953 188.09245416
+ 203.18110596 150.57222949 197.91036908 184.75717831 207.51613778
+ 186.20518139 212.20587555 201.49352914 181.26902367 197.71935502
+ 144.55596421 225.47245697 144.5963642  210.1795642  186.91015248
+ 220.65581593 190.25183585 202.92536866 193.8555052  167.79747774
+ 169.34173903 187.98686017 231.44922776]
+2025-06-21 17:30:09 INFO Expected Optimum FE: -100
+2025-06-21 17:30:09 INFO Unimodal AOCC mean: nan
+2025-06-21 17:30:09 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:30:09 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:30:09 INFO AOCC mean: 0.0000
+2025-06-21 17:30:20 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:30:20 ERROR Can not run the algorithm
+2025-06-21 17:30:20 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:30:20 INFO FeHistory: [141.78704542 223.60330015 236.8129651  213.19467357 197.98654681
+ 176.94859796 206.1571756  217.91430148 217.59634014 200.24962447
+ 170.90004804 200.37572585 196.56756134 200.7638947  209.98648548
+ 198.97181553 197.38313734 193.28136872 224.86513674 190.14026832
+ 205.02997154 210.93713995 179.83430907 204.7112383  214.36307162
+ 189.87496251 196.57917705 207.45674785 192.00691135 206.57357776
+ 205.26336304 202.0537554  217.19353474 200.79796329 171.19193358
+ 194.60671279 205.58012355 187.94415287 207.59881638 187.14961396
+ 195.39190072 184.57847913 174.91857609 194.49832488 177.46278833
+ 186.58285657 179.24918829 217.72951582 182.57801444 214.61522526
+ 184.6687791  210.1681831  189.66396448 196.72802988 202.1737095
+ 182.81947428 193.31054788 216.06563206 153.20700474 190.3508963
+ 178.87890624 200.9591858  202.39261602 183.54217927 174.4222723
+ 217.13008959 204.0003097  209.53820735 185.86045712 189.55093633
+ 214.76344719 181.27065301 208.56713712 181.63693007 204.07459896
+ 173.38859761 201.65235652 184.49825926 186.24989925 206.45345491
+ 175.25535515 203.88444747 194.26065557 214.91073971 177.2908119
+ 189.61060289 189.83554285 215.16652861 196.73750098 209.57576853
+ 198.55480232 196.59706736 205.51089202 187.1562949  178.59347919
+ 212.98413472 186.01292352 178.22577797 184.28125665 203.03677095
+ 218.67442952]
+2025-06-21 17:30:20 INFO Expected Optimum FE: -100
+2025-06-21 17:30:20 INFO Unimodal AOCC mean: nan
+2025-06-21 17:30:20 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:30:20 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:30:20 INFO AOCC mean: 0.0000
+2025-06-21 17:30:28 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:30:28 ERROR Can not run the algorithm
+2025-06-21 17:30:28 INFO Run function 24 complete. FEHistory len: 21, AOCC: 0.0000
+2025-06-21 17:30:28 INFO FeHistory: [195.87125804 190.18312238 208.94094668 176.57232283 180.46326375
+ 175.20517421 149.87291783 173.68608625 193.68645636 184.14741199
+ 213.91919914 194.75663788 186.68316514 173.0701375  158.11236778
+ 191.13818519 217.19996647 194.09302188 175.80479866 215.83096041
+ 177.22928613]
+2025-06-21 17:30:28 INFO Expected Optimum FE: -100
+2025-06-21 17:30:28 INFO Unimodal AOCC mean: nan
+2025-06-21 17:30:28 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:30:28 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:30:28 INFO AOCC mean: 0.0000
+2025-06-21 17:30:28 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+### Better code
+AdaptiveGaussianArchiveEA
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveGaussianArchiveEA
+# Description: Combines adaptive Gaussian mutation with an archive for enhanced exploration in multimodal landscapes.
+# Code:
+class AdaptiveGaussianArchiveEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = budget
+        self.dim = dim
+        self.lower_bounds = np.array(lower_bounds)
+        self.upper_bounds = np.array(upper_bounds)
+        self.eval_count = 0
+        self.best_solution = None
+        self.best_fitness = float('inf')
+        self.population_size = 10 + int(3 * np.log(self.dim))
+        self.archive_size = 100
+        self.archive = []
+        self.sigma = 0.5 * (self.upper_bounds - self.lower_bounds).mean()
+        self.mutation_rate = 0.2
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness = objective_function(np.array([self.best_solution]))[0]
+        self.eval_count +=1
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        
+        while self.eval_count < self.budget:
+            fitness_values = objective_function(population)
+            self.eval_count += self.population_size
+
+            for i in range(self.population_size):
+                if fitness_values[i] < self.best_fitness:
+                    self.best_fitness = fitness_values[i]
+                    self.best_solution = population[i]
+
+            # Adaptive sigma based on population diversity
+            diversity = np.std(population)
+            self.sigma = self.sigma * (1 + 0.1 * (1-diversity/(self.upper_bounds-self.lower_bounds).mean()))
+
+
+            # Archive management
+            for sol,fit in zip(population, fitness_values):
+                if len(self.archive) < self.archive_size:
+                    self.archive.append((sol,fit))
+                else:
+                    distances = cdist(np.array([sol]), np.array([a[0] for a in self.archive]))
+                    worst_index = np.argmax([a[1] for a in self.archive])
+                    if distances[0][0] < 0.5 * (self.upper_bounds-self.lower_bounds).mean() and fitness_values[i]<self.archive[worst_index][1] :
+                        self.archive[worst_index] = (sol,fit)
+            
+            # Generate offspring through Gaussian mutation using archive
+            offspring = []
+            for _ in range(self.population_size):
+                parent = np.random.choice(np.array([a[0] for a in self.archive]))
+                offspring.append(parent + np.random.normal(0, self.sigma, self.dim))
+            
+            offspring = np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+            population = offspring
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness
+        }
+        return self.best_solution, self.best_fitness, optimization_info
+
+
+### Worse code
+AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+### Analyze & experience
+- Comparing (best) `AdaptiveGaussianDEwithArchive` (Rank 1) vs (worst) `AdaptiveDifferentialEvolutionWithCauchyMutation` (Rank 10), we see a significant difference in the mutation strategy. Rank 1 uses a combination of adaptive Gaussian mutation and Differential Evolution, incorporating an archive to maintain diversity and exploit promising regions. Rank 10 uses only Cauchy mutation within a DE framework, lacking the archive and adaptive Gaussian component, which likely hinders its ability to escape local optima and maintain diversity.  (second best) `AdaptiveGaussianArchiveEA` (Rank 2) vs (second worst) `AdaptiveDifferentialEvolutionWithClustering` (Rank 8): Rank 2 effectively uses an archive to guide Gaussian mutation, but lacks the sophisticated DE mechanism of Rank 1. Rank 8 uses clustering, which can be computationally expensive and may not always improve performance. Comparing (1st) vs (2nd), we see that the addition of Differential Evolution significantly improves performance. (3rd) `AdaptiveGaussianDEwithArchive` (Rank 3) vs (4th) `ArchiveGuidedGaussianMutationDE` (Rank 4): Rank 3 directly uses DE and Gaussian mutation, while Rank 4 uses a simpler Gaussian approach without DE, leading to inferior performance. Comparing (second worst) vs (worst), we see that Rank 8 (Clustering) still outperforms Rank 10 (only Cauchy mutation). Overall: The top-performing algorithms consistently utilize archives, adaptive mutation strategies (Gaussian being superior to Cauchy in this context), and the robust framework provided by Differential Evolution.  Simple Gaussian mutation and the clustering approach demonstrated less effectiveness.
+- * **Keywords:**  High-dimensional, multimodal, diversity, adaptive mutation, archive, selection, distribution, DE (Differential Evolution).
+
+* **Advice:** Focus on quantifiable metrics for evaluating diversity and exploitation/exploration balance.  Develop rigorous methods for selecting mutation distributions based on problem characteristics (e.g., dimensionality, modality).  Experiment with different archive management strategies (size, update frequency).  Benchmark against simple, well-tuned baselines.
+
+* **Avoid:** Vague statements like "complex strategies," "effective balance," and problem-dependent advice without concrete implementation details.  Avoid subjective judgments about complexity without empirical evidence.
+
+* **Explanation:** The goal is to move beyond qualitative observations towards a more rigorous, data-driven approach to heuristic design.  By focusing on measurable quantities and comparative analysis, we can create heuristics that are demonstrably superior and less susceptible to overfitting to specific problems.
+
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-21 17:30:28 INFO Mutation prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+Current heuristics:
+AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+Now, think outside the box write a mutated function better than current version.
+You can use some hints below:
+- * **Keywords:**  High-dimensional, multimodal, diversity, adaptive mutation, archive, selection, distribution, DE (Differential Evolution).
+
+* **Advice:** Focus on quantifiable metrics for evaluating diversity and exploitation/exploration balance.  Develop rigorous methods for selecting mutation distributions based on problem characteristics (e.g., dimensionality, modality).  Experiment with different archive management strategies (size, update frequency).  Benchmark against simple, well-tuned baselines.
+
+* **Avoid:** Vague statements like "complex strategies," "effective balance," and problem-dependent advice without concrete implementation details.  Avoid subjective judgments about complexity without empirical evidence.
+
+* **Explanation:** The goal is to move beyond qualitative observations towards a more rigorous, data-driven approach to heuristic design.  By focusing on measurable quantities and comparative analysis, we can create heuristics that are demonstrably superior and less susceptible to overfitting to specific problems.
+
+
+Output code only and enclose your code with Python code block: ```python ... ```.
+I'm going to tip $999K for a better solution!
+2025-06-21 17:31:14 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:31:32 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0319
+2025-06-21 17:31:32 INFO FeHistory: [201.86902699 171.56199634 118.5606031  ... -61.5409177  -61.5839908
+ -61.54228921]
+2025-06-21 17:31:32 INFO Expected Optimum FE: -100
+2025-06-21 17:31:32 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchive
+import numpy as np
+from scipy.stats import cauchy
+
+# Name: AdaptiveDEwithArchive
+# Description: Differential Evolution with adaptive mutation and an archive to escape local optima and maintain diversity.
+# Code:
+class AdaptiveDEwithArchive:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 100
+        self.archive = []
+        self.F = 0.5  # Differential evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.adaptive_scale = 1.0
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_archive(offspring, offspring_fitness)
+            self._adaptive_mutation_strategy(fitness_values)
+            self._update_best(offspring, offspring_fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _differential_evolution(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_different(i, self.population_size)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _select_three_different(self, i, population_size):
+        candidates = np.array(list(range(population_size)))
+        candidates = candidates[candidates != i]
+        return np.random.choice(candidates, 3, replace=False)
+
+    def _crossover(self, x, v):
+        jrand = np.random.randint(0, self.dim)
+        y = np.copy(x)
+        for j in range(self.dim):
+            if np.random.rand() < self.CR or j == jrand:
+                y[j] = v[j]
+        return y
+    
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+
+    def _update_archive(self, offspring, offspring_fitness):
+        for i, sol in enumerate(offspring):
+            self.archive.append((sol, offspring_fitness[i]))
+        self.archive.sort(key=lambda item: item[1])
+        self.archive = self.archive[:self.archive_size]
+
+    def _adaptive_mutation_strategy(self, fitness_values):
+        std_fitness = np.std(fitness_values)
+        if std_fitness < 1e-6: #Convergence Check
+            self.adaptive_scale *= 1.2 # Increase exploration if converged
+        else:
+            self.adaptive_scale = 1.0 #Reset scale
+
+        self.F = 0.5 + 0.3 * np.random.normal(0, self.adaptive_scale)
+        self.F = np.clip(self.F, 0.1,1.0)
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+2025-06-21 17:31:32 INFO Unimodal AOCC mean: nan
+2025-06-21 17:31:32 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:31:32 INFO Multimodal (multiple components) AOCC mean: 0.0319
+2025-06-21 17:31:32 INFO AOCC mean: 0.0319
+2025-06-21 17:31:32 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:31:50 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:31:50 INFO FeHistory: [187.68258381 185.57459095 199.97816603 ... 128.14714625  97.30779394
+ 106.31152566]
+2025-06-21 17:31:50 INFO Expected Optimum FE: -100
+2025-06-21 17:31:50 INFO Unimodal AOCC mean: nan
+2025-06-21 17:31:50 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:31:50 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:31:50 INFO AOCC mean: 0.0000
+2025-06-21 17:31:50 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:32:07 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0272
+2025-06-21 17:32:07 INFO FeHistory: [206.48356054 192.56723053 211.92661945 ... -54.37399219 -54.41085289
+ -54.53305847]
+2025-06-21 17:32:07 INFO Expected Optimum FE: -100
+2025-06-21 17:32:07 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchive
+import numpy as np
+from scipy.stats import cauchy
+
+# Name: AdaptiveDEwithArchive
+# Description: Differential Evolution with adaptive mutation and an archive to escape local optima and maintain diversity.
+# Code:
+
+class AdaptiveDEwithArchive:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 50
+        self.archive = []
+        self.F = 0.8  # Differential evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            # Update archive
+            self._update_archive(population, fitness_values)
+            self._update_archive(offspring, offspring_fitness)
+
+            # Selection
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+
+            # Adapt F and CR (optional, can be replaced with other adaptation strategies)
+            self.F = max(0.1, self.F + 0.05*np.random.randn())
+            self.CR = max(0.1, min(0.9, self.CR + 0.05*np.random.randn()))
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _differential_evolution(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            # Randomly select 3 different individuals
+            a, b, c = np.random.choice(self.population_size, 3, replace=False)
+            while a == i or b == i or c == i:
+                a, b, c = np.random.choice(self.population_size, 3, replace=False)
+
+            # Create mutant vector
+            mutant = population[a] + self.F * (population[b] - population[c])
+
+            # Bounding the mutant vector.
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            jrand = np.random.randint(self.dim)
+            for j in range(self.dim):
+                if np.random.rand() < self.CR or j == jrand:
+                    offspring[i, j] = mutant[j]
+                else:
+                    offspring[i, j] = population[i, j]
+        return offspring
+
+
+    def _update_archive(self, population, fitness_values):
+        for i in range(len(population)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((population[i], fitness_values[i]))
+            else:
+                worst_index = np.argmax([x[1] for x in self.archive])
+                if fitness_values[i] < self.archive[worst_index][1]:
+                    self.archive[worst_index] = (population[i], fitness_values[i])
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+2025-06-21 17:32:07 INFO Unimodal AOCC mean: nan
+2025-06-21 17:32:07 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:32:07 INFO Multimodal (multiple components) AOCC mean: 0.0272
+2025-06-21 17:32:07 INFO AOCC mean: 0.0272
+2025-06-21 17:32:07 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:32:07 ERROR Can not run the algorithm
+2025-06-21 17:32:07 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:32:07 INFO FeHistory: [180.07772543 205.23241003 199.85078362 182.79224666 173.60881733
+ 176.32198559 167.19045355 156.51020304 183.04208047 189.10122917
+ 221.53069991 188.39487801 201.49932567 217.24095325 190.79694278
+ 207.04442226 187.32293308 201.77248846 226.16128329 190.50632626
+ 177.95374713 195.13561277 186.57657425 200.97772016 187.7749855
+ 170.95781523 205.27861989 184.28829127 166.44146771 187.98443822
+ 167.35232883 179.55739383 175.53276148 218.3429507  181.3897723
+ 196.59285728 198.18488794 141.94080638 197.73654442 213.96061887
+ 185.18618766 175.24596533 205.66327002 218.65557203 170.85951834
+ 170.74112509 178.75186906 196.03635817 186.87388415 217.92076877
+ 189.67539969 194.44665595 167.5722357  178.78713797 210.33044599
+ 157.95693761 178.54483985 215.89257505 174.92987547 227.69830882
+ 185.67527542 162.3611475  186.19350949 225.70383442 165.89073587
+ 191.97686594 189.4583074  187.83907113 185.79944101 190.22612325
+ 186.1108217  216.31071025 166.53781975 185.04312264 205.84386452
+ 184.19674412 192.03787194 174.0830709  175.39973001 157.99329371
+ 146.57101419 165.17424909 203.17004008 178.51256689 164.01229471
+ 187.07706586 182.97072793 192.21981445 182.70609666 169.61455339
+ 196.49562507 203.35913716 201.50933086 216.22591128 181.33731825
+ 204.04655896 187.56259973 211.82763831 207.09908436 227.08016799
+ 205.20244626]
+2025-06-21 17:32:07 INFO Expected Optimum FE: -100
+2025-06-21 17:32:07 INFO Unimodal AOCC mean: nan
+2025-06-21 17:32:07 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:32:07 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:32:07 INFO AOCC mean: 0.0000
+2025-06-21 17:32:07 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:32:24 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0008
+2025-06-21 17:32:24 INFO FeHistory: [184.36695021 188.60076645 214.24401805 ...  -2.05709981  -2.05709981
+  -2.05709981]
+2025-06-21 17:32:24 INFO Expected Optimum FE: -100
+2025-06-21 17:32:24 INFO Unimodal AOCC mean: nan
+2025-06-21 17:32:24 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:32:24 INFO Multimodal (multiple components) AOCC mean: 0.0008
+2025-06-21 17:32:24 INFO AOCC mean: 0.0008
+2025-06-21 17:32:24 INFO Generation 3, best so far: 0.06820813183187587
+2025-06-21 17:32:24 INFO Population length is: 11
+2025-06-21 17:32:24 INFO --- Performing Long-Term Reflection at Generation 3 ---
+2025-06-21 17:32:29 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveGaussianDEwithArchiveAndClustering vs (worst) AdaptiveGaussianDEwithArchive, we see that clustering significantly improves the algorithm's ability to escape local optima and find multiple optima in multimodal functions.  The archive in the best algorithm also helps maintain diversity and prevent premature convergence. (second best) AdaptiveGaussianDEwithArchive vs (second worst) AdaptiveGaussianDEwithArchive shows that a more sophisticated archive update mechanism and adaptive sigma adjustment in the second best leads to improved performance. Comparing (1st) vs (2nd), we see that the addition of clustering in the best algorithm provides a more robust mechanism for handling multimodal problems by grouping similar solutions. (3rd) vs (4th) show the importance of proper selection with the 3rd performing better due to adaptive handling of the sigma. Comparing (second worst) vs (worst), we see that the AdaptiveGaussianDEWithEnhancedArchive algorithm’s enhanced archive management, aiming for better diversity,  provides marginal improvement compared to a simpler archive approach. Overall: The top-performing algorithms consistently employ archives for memory of previously explored regions, adaptive mutation strategies (Gaussian) for fine-tuning search in promising areas, and clustering (in the top performer) effectively manages the exploration-exploitation balance in multimodal landscapes, superior to simpler selection and adaptation schemes.
+
+
+**Experience:**
+
+Effective population generation for high-dimensional problems requires strategies that balance exploration (finding diverse solutions) and exploitation (refining promising areas).  Adaptive mechanisms, archives, and clustering prove crucial for handling complex, multimodal search spaces.  Careful selection methods and robust archive management significantly influence performance.
+
+2025-06-21 17:32:31 INFO Full response text: * **Keywords:**  Heuristic Design, High-Dimensional Optimization, Exploration-Exploitation Balance, Adaptive Mechanisms, Archive Management, Selection Strategies.
+
+* **Advice:** Focus on quantifiable metrics for exploration and exploitation.  Develop modular designs allowing easy swapping of components (e.g., different selection methods, archive structures).  Rigorously test heuristics across diverse problem instances.  Prioritize clarity and simplicity in the heuristic's logic.
+
+* **Avoid:** Vague terms like "adaptive mutation" or "strong optimization frameworks."  Avoid problem-specific tuning without careful justification.  Don't over-engineer; simpler heuristics can often outperform complex ones.  Avoid claims of universal superiority without comprehensive empirical evidence.
+
+* **Explanation:**  The ineffective reflections are too general and lack specific actionable steps.  The improved approach emphasizes measurable criteria and modularity, enabling systematic improvement and comparison.  Simplicity and rigorous testing are prioritized to ensure robust performance and avoid overfitting to specific problem characteristics.
+
+2025-06-21 17:32:31 INFO Generating offspring via Crossover...
+2025-06-21 17:32:41 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:33:02 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:33:02 INFO FeHistory: [216.73626503 187.82847219 186.94321121 ... 195.47661207 228.51249791
+ 206.79988411]
+2025-06-21 17:33:02 INFO Expected Optimum FE: -100
+2025-06-21 17:33:02 INFO Unimodal AOCC mean: nan
+2025-06-21 17:33:02 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:33:02 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:33:02 INFO AOCC mean: 0.0000
+2025-06-21 17:33:13 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:33:31 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:33:31 INFO FeHistory: [188.15844233 203.29865041 198.57651928 ...  80.73530812  77.61742297
+  58.13963312]
+2025-06-21 17:33:31 INFO Expected Optimum FE: -100
+2025-06-21 17:33:31 INFO Unimodal AOCC mean: nan
+2025-06-21 17:33:31 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:33:31 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:33:31 INFO AOCC mean: 0.0000
+2025-06-21 17:33:45 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:33:45 ERROR Can not run the algorithm
+2025-06-21 17:33:45 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:33:45 INFO FeHistory: [194.59118135 194.99568868 181.72889988 151.61423165 173.23157947
+ 218.67377024 187.68965168 197.99954761 178.17685442 209.6424352
+ 193.89859156 200.6284324  167.43820657 191.91991427 184.80533329
+ 225.46149507 194.08312396 206.44396196 181.64366087 220.43842901
+ 197.35647196 160.85297801 173.16901086 181.11755017 187.10218225
+ 179.9575587  224.12638228 165.93998859 224.6142796  216.0845809
+ 184.31149233 195.84538866 181.59715706 196.28532446 194.90687248
+ 197.44776525 191.09854399 187.66719841 194.51934669 193.00366692
+ 222.45665588 197.15241405 214.24730167 210.69505531 154.11678696
+ 155.39543891 183.02836732 169.17935286 162.23474417 175.28324727
+ 206.63498221 169.84873267 234.39845338 153.73610171 171.66576996
+ 177.28810925 191.13572545 169.79688541 209.1501904  161.686285
+ 174.89374327 192.07271217 183.64567536 182.64886301 217.53033606
+ 206.29102574 175.76954926 159.90003151 197.76141857 175.96761556
+ 222.64561923 177.30174914 171.62416073 182.48096796 195.42137021
+ 187.45263248 176.34105577 190.91638109 203.91163008 184.22216646
+ 197.08405828 210.96658061 167.96993746 171.84769535 162.90541919
+ 169.61541699 184.46366172 189.78311094 189.79126997 177.45796024
+ 210.74599612 179.77066652 207.9811616  186.6223301  198.86362577
+ 188.84416686 231.13744758 168.75882982 198.22366148 182.81435442
+ 179.45362307]
+2025-06-21 17:33:45 INFO Expected Optimum FE: -100
+2025-06-21 17:33:45 INFO Unimodal AOCC mean: nan
+2025-06-21 17:33:45 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:33:45 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:33:45 INFO AOCC mean: 0.0000
+2025-06-21 17:33:57 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:34:21 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:34:21 INFO FeHistory: [206.1320767  183.56876056 170.13998365 ... 247.41002545 205.85114181
+ 177.64085279]
+2025-06-21 17:34:21 INFO Expected Optimum FE: -100
+2025-06-21 17:34:21 INFO Unimodal AOCC mean: nan
+2025-06-21 17:34:21 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:34:21 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:34:21 INFO AOCC mean: 0.0000
+2025-06-21 17:34:31 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:35:31 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:38:30 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:38:30 INFO FeHistory: [139.27127624 166.47866847 192.96349985 ... 179.52024452 178.69212336
+ 162.9092616 ]
+2025-06-21 17:38:30 INFO Expected Optimum FE: -100
+2025-06-21 17:38:30 INFO Unimodal AOCC mean: nan
+2025-06-21 17:38:30 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:38:30 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:38:30 INFO AOCC mean: 0.0000
+2025-06-21 17:38:42 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:39:42 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:41:45 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:41:45 INFO FeHistory: [138.34525946 177.95066057 197.71015508 ...  75.99622461  59.03252412
+  61.56295204]
+2025-06-21 17:41:45 INFO Expected Optimum FE: -100
+2025-06-21 17:41:45 INFO Unimodal AOCC mean: nan
+2025-06-21 17:41:45 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:41:45 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:41:45 INFO AOCC mean: 0.0000
+2025-06-21 17:41:53 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:41:53 ERROR Can not run the algorithm
+2025-06-21 17:41:54 INFO Run function 24 complete. FEHistory len: 21, AOCC: 0.0000
+2025-06-21 17:41:54 INFO FeHistory: [171.60563503 181.67186731 157.71990172 198.50429026 200.92987874
+ 210.30507466 188.91713657 201.67423443 205.28342826 181.810809
+ 177.71637242 193.10960338 142.26974659 182.0991312  167.47372163
+ 201.80602433 165.58799267 180.91728994 178.58555254 194.20650334
+ 205.53577592]
+2025-06-21 17:41:54 INFO Expected Optimum FE: -100
+2025-06-21 17:41:54 INFO Unimodal AOCC mean: nan
+2025-06-21 17:41:54 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:41:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:41:54 INFO AOCC mean: 0.0000
+2025-06-21 17:42:04 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:42:04 ERROR Can not run the algorithm
+2025-06-21 17:42:04 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:42:04 INFO FeHistory: [174.12576005 207.89601382 195.74622912 227.44912407 186.31586164
+ 199.48410836 181.54038003 209.36137606 199.04505576 198.1221855
+ 187.01758584 184.8179525  186.74301458 180.58982007 189.01523035
+ 186.10786438 198.23086907 184.46968162 194.79254941 174.57748268
+ 174.20751696 205.85260831 180.66853621 198.61426891 171.08209501
+ 169.06832793 182.4166893  202.65539926 119.45073545 186.20645837
+ 163.91772294 180.80504851 184.37012902 188.00518183 199.67769509
+ 194.54827364 173.91915518 180.70272926 191.02857789 193.20323945
+ 192.24374023 219.11413256 212.66518111 204.57026355 170.78367536
+ 201.87023658 166.20218712 190.75909662 184.38269427 185.87181105
+ 158.82291893 196.85137971 184.28794657 172.55509086 204.78543421
+ 181.91881765 197.10216074 187.61423193 198.83160448 194.8674745
+ 211.56929222 189.10488844 206.52736208 220.64586718 197.9653094
+ 187.25018419 165.79441335 166.4624853  191.81902427 198.59854863
+ 166.34575791 199.12694813 160.93900626 233.63346296 182.72367463
+ 213.08028892 216.76126361 167.65616224 191.06370113 163.41985384
+ 173.78364638 132.40725917 192.99963198 199.98288207 217.01327182
+ 210.09091686 210.86709596 192.06525372 206.58530381 199.04219747
+ 181.57764051 177.06217014 182.54840457 204.90228889 203.42488297
+ 172.47131858 192.01065065 151.10565129 134.28191511 189.18728213
+ 188.17805194]
+2025-06-21 17:42:04 INFO Expected Optimum FE: -100
+2025-06-21 17:42:04 INFO Unimodal AOCC mean: nan
+2025-06-21 17:42:04 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:42:04 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:42:04 INFO AOCC mean: 0.0000
+2025-06-21 17:42:15 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:42:15 ERROR Can not run the algorithm
+2025-06-21 17:42:15 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-21 17:42:15 INFO FeHistory: [229.43406019 189.7144227  155.75397503 202.06827394 187.53903058
+ 191.46312817 185.45827593 198.99831252 148.54455655 205.10108208
+ 174.91407671 208.93821529 182.51688706 177.10706127 163.02682268
+ 174.61460303 158.81233029 167.6304189  204.76613493 195.78346434
+ 188.93655881 208.53898957 187.19528212 203.85758523 198.61394906
+ 164.38777442 152.17944725 132.30953017 189.97388238 197.5534103
+ 181.14275003 178.3076103  190.74756637 200.86104605 167.94122701
+ 197.7789653  200.79110789 188.6141491  209.7441971  188.79974643
+ 167.60883901 162.50281843 200.52881453 195.80157857 181.47561889
+ 174.29377415 175.9648155  217.63610129 183.21383535 198.80914734
+ 199.25534029 173.02325148 188.33727337 167.54379727 196.70244936
+ 201.23112441 153.18896975 193.49148645 205.96327361 201.2070934
+ 180.79378655 207.52039564 137.2520776  192.40744059 185.50044194
+ 170.73926793 173.65020985 177.5303928  206.30423889 166.93489318
+ 179.26373624 190.21961004 156.20007223 207.75141863 219.85015118
+ 191.37519484 135.60585351 204.82999075 182.17615549 161.69461726
+ 201.77959352 183.35980351 175.06006949 170.88768991 205.00568783
+ 181.7344684  184.27304902 170.68812072 194.35983763 169.54998966
+ 182.15839693 202.53159971 170.31365559 197.71659276 173.97789081
+ 200.08218198 170.7314694  189.01342337 179.52997184 162.18285572
+ 224.86496821 214.95023287 184.32975386 199.37525738 207.60997629
+ 183.23857877 202.52918463 196.66628051 180.63920685 197.58581563
+ 207.34318675 232.93313613 226.09495321 190.34115795 195.69291509
+ 234.89079408 218.71735792 203.62350723 217.20878882 199.3364466
+ 181.1237391  187.96198279 204.07343089 206.21286894 178.19370142
+ 208.30365238 204.75314144 201.10691826 199.61978568 182.81613817
+ 232.71603516 205.59334969 180.54304301 206.09331164 172.86528394
+ 183.57941416 195.15257041 203.79481554 207.81676074 207.71476956
+ 189.11805001 220.28154921 202.7166013  195.87480034 210.45164707
+ 199.77134577 193.217733   183.07219224 175.83555623 172.77944287
+ 199.32398398 180.97937135 202.14630163 205.45430838 196.36873268
+ 199.42258553 187.81837128 197.59130232 229.41363589 222.17841692
+ 195.67893416 182.39408484 191.49710539 177.86876349 201.55748703
+ 183.75076277 208.12858937 207.53603576 229.32392059 163.48158619
+ 179.81525785 180.17977607 171.95036639 211.47943134 223.41571105
+ 203.51117357 226.49432993 206.58991241 239.49301871 194.17822259
+ 197.43680169 231.28203517 199.69863389 208.91061374 193.68834978
+ 199.42923656 216.05900627 222.87745856 174.5207697  224.47755225
+ 174.04680554 186.98004719 185.97118343 169.9817579  188.76440794
+ 197.1632095  203.14961726 209.77088223 229.81522814 177.02475546
+ 238.56313562]
+2025-06-21 17:42:15 INFO Expected Optimum FE: -100
+2025-06-21 17:42:15 INFO Unimodal AOCC mean: nan
+2025-06-21 17:42:15 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:42:15 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:42:15 INFO AOCC mean: 0.0000
+2025-06-21 17:42:27 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:43:27 INFO [TIMEOUT] Evaluation exceeded 60 seconds and was skipped.
+2025-06-21 17:45:29 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:45:29 INFO FeHistory: [177.31468171 184.87156289 203.38425277 ... 244.34169882 267.08991916
+ 245.29816742]
+2025-06-21 17:45:29 INFO Expected Optimum FE: -100
+2025-06-21 17:45:29 INFO Unimodal AOCC mean: nan
+2025-06-21 17:45:29 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:45:29 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:45:29 INFO AOCC mean: 0.0000
+2025-06-21 17:45:29 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+### Better code
+AdaptiveGaussianDEwithArchive
+import numpy as np
+import random
+
+# Name: AdaptiveGaussianDEwithArchive
+# Description: Combines adaptive Gaussian mutation, Differential Evolution, and an archive for multimodal optimization.
+# Code:
+
+class AdaptiveGaussianDEwithArchive:
+    """
+    Combines adaptive Gaussian mutation, Differential Evolution (DE), and an archive for robust multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.initial_sigma = 0.2 * (self.upper_bounds - self.lower_bounds).mean()
+        self.sigma_decay = 0.99
+        self.archive = []
+        self.archive_diversity_threshold = 0.1
+        self.F = 0.8 #Differential Evolution scaling factor
+        self.CR = 0.9 #Differential Evolution crossover rate
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness_values)
+            offspring = self._gaussian_mutation(offspring)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            population, fitness_values = self._select_next_generation(
+                population, fitness_values, offspring, offspring_fitness
+            )
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+            self._check_archive_diversity()
+            self._update_best(offspring, offspring_fitness)
+            self.sigma_decay *= (1 + (0.1 * random.random()))
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.initial_sigma, size=(self.population_size, self.dim))
+        return np.clip(population, self.lower_bounds, self.upper_bounds)
+
+    def _differential_evolution(self, population, fitness_values):
+        offspring = np.copy(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_random_different(population, i)
+            mutant = a + self.F * (b - c)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_random_different(self, population, i):
+      indices = list(range(self.population_size))
+      indices.remove(i)
+      random_indices = random.sample(indices, 3)
+      return population[random_indices[0]], population[random_indices[1]], population[random_indices[2]]
+
+    def _crossover(self, x, mutant):
+        trial = np.copy(x)
+        j = random.randrange(self.dim)
+        for i in range(self.dim):
+            if random.random() < self.CR or i == j:
+                trial[i] = mutant[i]
+        return trial
+
+    def _gaussian_mutation(self, offspring):
+        sigma = self.initial_sigma * self.sigma_decay
+        mutated = offspring + np.random.normal(0, sigma, size=offspring.shape)
+        return np.clip(mutated, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _check_archive_diversity(self):
+        if len(self.archive) < self.archive_size * self.archive_diversity_threshold:
+            new_individuals = self._initialize_population(int(self.population_size * 0.1))
+            new_fitness = objective_function(new_individuals)
+            self.eval_count += len(new_individuals)
+            self.archive = self._update_archive(np.vstack((self.archive[:, :-1], new_individuals)),
+                                                np.concatenate((self.archive[:, -1], new_fitness)))
+
+
+### Worse code
+AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+### Analyze & experience
+- Comparing (best) AdaptiveGaussianDEwithArchiveAndClustering vs (worst) AdaptiveGaussianDEwithArchive, we see that clustering significantly improves the algorithm's ability to escape local optima and find multiple optima in multimodal functions.  The archive in the best algorithm also helps maintain diversity and prevent premature convergence. (second best) AdaptiveGaussianDEwithArchive vs (second worst) AdaptiveGaussianDEwithArchive shows that a more sophisticated archive update mechanism and adaptive sigma adjustment in the second best leads to improved performance. Comparing (1st) vs (2nd), we see that the addition of clustering in the best algorithm provides a more robust mechanism for handling multimodal problems by grouping similar solutions. (3rd) vs (4th) show the importance of proper selection with the 3rd performing better due to adaptive handling of the sigma. Comparing (second worst) vs (worst), we see that the AdaptiveGaussianDEWithEnhancedArchive algorithm’s enhanced archive management, aiming for better diversity,  provides marginal improvement compared to a simpler archive approach. Overall: The top-performing algorithms consistently employ archives for memory of previously explored regions, adaptive mutation strategies (Gaussian) for fine-tuning search in promising areas, and clustering (in the top performer) effectively manages the exploration-exploitation balance in multimodal landscapes, superior to simpler selection and adaptation schemes.
+- * **Keywords:**  Heuristic Design, High-Dimensional Optimization, Exploration-Exploitation Balance, Adaptive Mechanisms, Archive Management, Selection Strategies.
+
+* **Advice:** Focus on quantifiable metrics for exploration and exploitation.  Develop modular designs allowing easy swapping of components (e.g., different selection methods, archive structures).  Rigorously test heuristics across diverse problem instances.  Prioritize clarity and simplicity in the heuristic's logic.
+
+* **Avoid:** Vague terms like "adaptive mutation" or "strong optimization frameworks."  Avoid problem-specific tuning without careful justification.  Don't over-engineer; simpler heuristics can often outperform complex ones.  Avoid claims of universal superiority without comprehensive empirical evidence.
+
+* **Explanation:**  The ineffective reflections are too general and lack specific actionable steps.  The improved approach emphasizes measurable criteria and modularity, enabling systematic improvement and comparison.  Simplicity and rigorous testing are prioritized to ensure robust performance and avoid overfitting to specific problem characteristics.
+
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-21 17:45:29 INFO Mutation prompt: Your objective is to design a novel and sophisticated population function in Python, solving 24 GNBG benchmark functions, particularly:
+
+Unimodal & Ill-Conditioned Landscapes (like f1-f6): These have a single optimum, but it may be hidden in a very long, narrow, rotated valley. A good strategy needs to effectively sample the central region of the search space and adapt its search direction.
+
+Rugged Single-Basin Landscapes (like f7-f15): These are filled with numerous, deep local optima. The algorithm must have a robust escape mechanism to avoid getting trapped.
+
+Deceptive Multi-Component Landscapes (like f16-f24): These problems have multiple, separate basins of attraction. The global optimum may be in a small, remote basin, while a larger, more attractive basin leads to a suboptimal solution. A good strategy must have aggressive global exploration capabilities.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark. The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+
+
+
+Current heuristics:
+AdaptiveGaussianSamplingEA
+import numpy as np
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian width
+        self.sigma_decay = 0.99 #Decay rate of sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            # Selection (tournament selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Recombination (Gaussian perturbation)
+            offspring = self._gaussian_recombination(parents)
+
+            # Mutation (adjust sigma adaptively)
+            offspring = self._adaptive_mutation(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Selection for next generation
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+
+            # Update best solution
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        #Adaptive Gaussian Sampling
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size //2 #Binary Recombination
+
+        selected_parents = []
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+        return np.array(selected_parents)
+
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i+1]
+            child1 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = (parent1 + parent2) / 2 + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+
+    def _adaptive_mutation(self, offspring):
+        #Simple Mutation, sigma is already updated
+        offspring += np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+    
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+Now, think outside the box write a mutated function better than current version.
+You can use some hints below:
+- * **Keywords:**  Heuristic Design, High-Dimensional Optimization, Exploration-Exploitation Balance, Adaptive Mechanisms, Archive Management, Selection Strategies.
+
+* **Advice:** Focus on quantifiable metrics for exploration and exploitation.  Develop modular designs allowing easy swapping of components (e.g., different selection methods, archive structures).  Rigorously test heuristics across diverse problem instances.  Prioritize clarity and simplicity in the heuristic's logic.
+
+* **Avoid:** Vague terms like "adaptive mutation" or "strong optimization frameworks."  Avoid problem-specific tuning without careful justification.  Don't over-engineer; simpler heuristics can often outperform complex ones.  Avoid claims of universal superiority without comprehensive empirical evidence.
+
+* **Explanation:**  The ineffective reflections are too general and lack specific actionable steps.  The improved approach emphasizes measurable criteria and modularity, enabling systematic improvement and comparison.  Simplicity and rigorous testing are prioritized to ensure robust performance and avoid overfitting to specific problem characteristics.
+
+
+Output code only and enclose your code with Python code block: ```python ... ```.
+I'm going to tip $999K for a better solution!
+2025-06-21 17:46:11 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:46:28 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:46:28 INFO FeHistory: [201.78797953 196.32884656 178.98897192 ...  61.3065017   42.31124037
+  75.85694185]
+2025-06-21 17:46:28 INFO Expected Optimum FE: -100
+2025-06-21 17:46:28 INFO Unimodal AOCC mean: nan
+2025-06-21 17:46:28 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:46:28 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:46:28 INFO AOCC mean: 0.0000
+2025-06-21 17:46:28 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:46:47 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:46:47 INFO FeHistory: [194.4584829  211.71982679 183.24502994 ...  66.03214694 113.28869723
+  94.20154074]
+2025-06-21 17:46:47 INFO Expected Optimum FE: -100
+2025-06-21 17:46:47 INFO Unimodal AOCC mean: nan
+2025-06-21 17:46:47 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:46:47 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:46:47 INFO AOCC mean: 0.0000
+2025-06-21 17:46:47 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:47:04 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:47:04 INFO FeHistory: [187.22434577 197.29785639 184.41625248 ...  85.67105055  86.18025204
+  78.57544264]
+2025-06-21 17:47:04 INFO Expected Optimum FE: -100
+2025-06-21 17:47:04 INFO Unimodal AOCC mean: nan
+2025-06-21 17:47:04 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:47:04 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:47:04 INFO AOCC mean: 0.0000
+2025-06-21 17:47:04 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:47:20 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:47:20 INFO FeHistory: [186.66520213 186.09410887 179.84859213 ...  61.65009651  44.30748033
+  80.52058178]
+2025-06-21 17:47:20 INFO Expected Optimum FE: -100
+2025-06-21 17:47:20 INFO Unimodal AOCC mean: nan
+2025-06-21 17:47:20 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:47:20 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:47:20 INFO AOCC mean: 0.0000
+2025-06-21 17:47:20 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:47:37 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-21 17:47:37 INFO FeHistory: [157.66060295 206.89933955 183.34245615 ...  67.58055322  79.20426122
+  65.33039565]
+2025-06-21 17:47:37 INFO Expected Optimum FE: -100
+2025-06-21 17:47:37 INFO Unimodal AOCC mean: nan
+2025-06-21 17:47:37 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:47:37 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:47:37 INFO AOCC mean: 0.0000
+2025-06-21 17:47:37 INFO Generation 4, best so far: 0.06820813183187587
+2025-06-21 17:47:37 INFO Population length is: 11
+2025-06-21 17:47:37 INFO --- Performing Long-Term Reflection at Generation 4 ---
+2025-06-21 17:47:43 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveDEwithClusteringAndArchive (Rank 1) vs (worst) AdaptiveDEwithArchiveAndClustering (Rank 10), we see that Rank 1 uses more sophisticated mutation (Differential Evolution + Gaussian) and crossover (binomial) operators, leading to a more effective exploration of the search space. Rank 1 also employs k-means clustering for diversity maintenance, whereas Rank 10 uses KMeans for archive diversity check, which is less direct. Rank 1's adaptive sigma mechanism for Gaussian mutation is also more refined. Rank 10 utilizes a simpler adaptive decay for sigma and lacks direct cluster diversity management in the main selection process.
+
+(second best) AdaptiveDEwithClusteringAndArchive (Rank 2) vs (second worst) AdaptiveDEwithArchiveAndClustering (Rank 9): Rank 2's clustering is more integrated into the selection process compared to Rank 9, which only checks for archive diversity.  Rank 2 uses `cdist` for more accurate distance calculations, and more effective archive updates. Rank 9 uses `np.allclose` which is less robust.
+
+Comparing (1st) vs (2nd), we see that both algorithms are similar, but Rank 1 is slightly more robust due to the more advanced Gaussian component in mutation, providing finer-grained exploration in high dimensional spaces. The number of clusters and archive sizes are also better tuned in Rank 1.
+
+(3rd) AdaptiveDEwithArchiveAndClustering (Rank 3) vs (4th) AdaptiveDEwithClusteringAndArchive (Rank 4): Rank 3 uses hierarchical clustering with linkage for more nuanced cluster identification. Rank 4 uses a simplified selection with cluster diversity after sorting by fitness. Rank 3's mutation and archive updates are also more sophisticated.
+
+Comparing (second worst) Rank 9 vs (worst) Rank 10: Rank 9 has a more structured archive update and cluster diversity check compared to Rank 10's less direct approach. Rank 9 handles adaptive F and CR parameters, while Rank 10 only adaptively changes the sigma decay.
+
+Overall: The top-ranked algorithms consistently leverage sophisticated mutation and crossover operators, integrating clustering directly into the selection process for superior diversity management. Adaptive sigma mechanisms in mutation enhance the search across diverse landscapes.  The lower-ranked algorithms are less robust in their cluster management and use less efficient methods for archive updates.
+
+
+**Experience:**
+
+Effective population generation for high-dimensional problems requires sophisticated mutation/crossover operators combined with diversity-preserving mechanisms like clustering, directly integrated into the selection process. Adaptive parameter tuning and robust archive management are crucial for balancing exploration and exploitation.
+
+2025-06-21 17:47:45 INFO Full response text: **Keywords:**  High-dimensional optimization, adaptive operators, diversity preservation, archive management, exploration-exploitation balance.
+
+**Advice:** Focus on novel hybrid operators combining mutation and crossover,  design sophisticated clustering algorithms directly integrated into selection, develop adaptive parameter control based on runtime analysis (e.g., using machine learning to predict optimal parameters), and implement advanced archive management techniques beyond simple elitism (e.g., using Pareto dominance or crowding).
+
+**Avoid:** Vague statements about "adaptive mechanisms" or "exploration-exploitation balance." Avoid generic claims of superiority without empirical validation.  Avoid overly problem-specific heuristics that lack generalizability.
+
+**Explanation:** The ineffective reflections suffer from lack of specificity and actionable insights. The improved reflection emphasizes concrete design choices and measurable improvements over existing techniques.  The goal is to move beyond general principles towards novel, testable, and potentially superior heuristics.  The proposed approach emphasizes creating a system where parameter adaptation and diversity management are dynamically coupled and informed by the search landscape itself.
+
+2025-06-21 17:47:45 INFO Generating offspring via Crossover...
+2025-06-21 17:47:57 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:47:57 ERROR Can not run the algorithm
+2025-06-21 17:47:57 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:47:57 INFO FeHistory: [159.20011663 210.68505021 184.37306116 187.48290033 193.91110205
+ 194.39344103 231.06447707 200.30961878 216.97527236 154.31146092
+ 204.62756207 204.5961288  190.23330055 186.28132077 192.55633
+ 191.48984648 172.03297006 174.27359209 187.79533999 197.19356833
+ 201.34823975 205.51413136 183.78401545 229.11024055 188.86503858
+ 159.65981593 202.04061451 198.78832371 219.46841047 207.38473231
+ 216.51669642 223.26319275 197.81134357 202.5853136  210.12526291
+ 160.7609887  194.68939915 201.36072287 235.61198515 218.8161107
+ 204.5551434  220.19214398 185.87315329 204.43881052 226.35815193
+ 192.29694094 186.86459339 209.61159425 203.80232634 199.80457348
+ 179.45624749 206.19826408 215.24469318 221.0198914  213.84277581
+ 219.70242277 189.72345703 219.93860544 192.17999775 180.51446089
+ 187.17334221 191.0070748  219.49362885 226.92286377 187.25542505
+ 183.24502601 200.22505828 223.06184745 185.36858397 181.10636806
+ 202.34289283 200.99723709 220.20582457 199.06654311 207.455445
+ 202.29683479 196.76287976 219.47846286 213.95374198 188.98174553
+ 172.81185428 217.52637222 190.95195604 214.36913719 199.99371023
+ 209.01149073 219.39978632 204.99174235 179.2935235  217.11677524
+ 226.1050868  209.00856411 190.26245002 204.41457334 195.29005943
+ 211.66685988 203.15174377 186.21947969 187.54973801 197.14988646
+ 196.37388074]
+2025-06-21 17:47:57 INFO Expected Optimum FE: -100
+2025-06-21 17:47:57 INFO Unimodal AOCC mean: nan
+2025-06-21 17:47:57 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:47:57 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:47:57 INFO AOCC mean: 0.0000
+2025-06-21 17:48:06 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:48:06 ERROR Can not run the algorithm
+2025-06-21 17:48:06 INFO Run function 24 complete. FEHistory len: 21, AOCC: 0.0000
+2025-06-21 17:48:06 INFO FeHistory: [164.80796335 179.86060765 155.54119017 182.41970326 201.26946457
+ 155.29364226 165.44015525 156.20399432 178.53814003 205.43448904
+ 196.69988442 177.3396087  148.30798051 164.58505282 188.8921391
+ 214.11097967 179.70863928 222.7837763  175.55863819 168.1642644
+ 172.36892956]
+2025-06-21 17:48:06 INFO Expected Optimum FE: -100
+2025-06-21 17:48:06 INFO Unimodal AOCC mean: nan
+2025-06-21 17:48:06 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:48:06 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:48:06 INFO AOCC mean: 0.0000
+2025-06-21 17:48:18 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-21 17:48:18 ERROR Can not run the algorithm
+2025-06-21 17:48:19 INFO Run function 24 complete. FEHistory len: 101, AOCC: 0.0000
+2025-06-21 17:48:19 INFO FeHistory: [178.6114274  195.34638397 172.32612854 190.52163698 185.36682193
+ 235.81349475 163.17822334 177.27326717 176.67140438 196.62921097
+ 218.98331875 242.53844326 217.39255364 209.20029883 190.36831634
+ 222.6518196  209.20583853 200.71378152 166.35533662 222.30848957
+ 180.62079118 201.46126701 214.82165703 183.0678285  183.42391008
+ 193.69652616 185.76603384 208.04400551 224.1359887  215.49366215
+ 204.88280934 186.51022199 210.36299506 170.12432985 214.19151776
+ 212.81891409 211.58871052 200.49225718 168.24815352 181.62216651
+ 207.53708309 204.07628598 214.93809407 227.39743026 179.97126049
+ 231.39560014 212.44640574 187.80004159 210.73900905 183.3263412
+ 180.9775256  186.98158026 217.79175171 195.00356444 205.67649415
+ 205.97145125 201.12090434 186.81481687 179.32130738 184.38488648
+ 181.12864471 207.26413232 214.09729184 200.96486993 172.57485211
+ 175.16444736 206.20754281 203.30649575 195.70448172 214.02446847
+ 184.83799838 174.90330318 178.77786495 184.56987727 190.40970029
+ 214.85516121 175.36629135 198.32671362 221.06262709 206.41269217
+ 218.60550853 253.22099936 221.67690214 176.32270702 212.84751466
+ 233.8362935  174.31394311 208.57104782 182.329287   206.8315817
+ 172.62517729 196.79807908 185.91791217 224.86371457 217.15589453
+ 196.61726405 218.89066427 215.48508677 191.38824437 189.43320807
+ 216.13292651]
+2025-06-21 17:48:19 INFO Expected Optimum FE: -100
+2025-06-21 17:48:19 INFO Unimodal AOCC mean: nan
+2025-06-21 17:48:19 INFO Multimodal (single component) AOCC mean: nan
+2025-06-21 17:48:19 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-21 17:48:19 INFO AOCC mean: 0.0000

@@ -1,0 +1,1422 @@
+2025-06-24 11:37:14 INFO Initializing first population
+2025-06-24 11:37:14 INFO Initializing population from 4 seed files...
+2025-06-24 12:05:00 INFO Started evolutionary loop, best so far: 0.043169165546472855
+2025-06-24 12:05:00 INFO Population length is: 10
+2025-06-24 12:05:00 INFO --- Performing Long-Term Reflection at Generation 1 ---
+2025-06-24 12:05:00 INFO Reflection Prompt: ### Problem Description
+**(CR: Capacity and Role)**
+Act as an expert in designing algorithms for deceptive, multi-component landscapes. Your specialty is creating strategies that use multi-population or island models to perform aggressive global exploration.
+
+**(I: Insight)**
+Your objective is to design a novel optimization algorithm for the GNBG benchmark. The most difficult functions (f16-f24) have multiple, separate basins of attraction where the global optimum can be hidden. An algorithm must be able to discover and explore these competing regions to succeed.
+
+**(S: Statement & P: Personality)**
+Provide a complete, novel Python class that implements a multi-population or island-based search strategy to solve this challenge. The class must have an `__init__(...)` and `optimize(...)` method as specified in the main task description.
+
+### List heuristics
+Below is a list of design heuristics ranked from best to worst based on their AOCC score on group function 3 of GNBG benchmark, where higher is better. To enable a detailed analysis of their specializations, the performance breakdown on each of the three GNBG function groups is also provided.
+### Rank 1 (Overall AOCC Score on Multimodal instances with multiple components: 4.3169e-02# Name: EnhancedArchiveGuidedDE
+# Description: Seed from EnhancedArchiveGuidedDE
+# Code:
+```python
+import numpy as np
+import random
+
+class EnhancedArchiveGuidedDE: #aocc 0.15
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 population_size_factor: float = 8.82865217019506, archive_size: int = 165.22481375900153, initial_F_scale: float = 0.3544373580018585):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = int(population_size_factor * self.dim)  # common heuristic
+        self.archive_size = archive_size
+        self.archive = []
+        self.population = None
+        self.F_scale = initial_F_scale  # initial scaling factor
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8,
+                 F_scale_variation: float = 0.3, archive_update_threshold: float = 0.8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness)]
+        self.best_fitness_overall = np.min(fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(self.population, fitness, F_scale_variation)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update archive
+            self.update_archive(offspring, offspring_fitness, archive_update_threshold)
+
+            # Select best solutions for next generation
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness, offspring_fitness))
+            indices = np.argsort(combined_fitness)
+            self.population = combined_population[indices[:self.population_size]]
+            fitness = combined_fitness[indices[:self.population_size]]
+
+            # Update best solution
+            self.best_solution_overall = self.population[np.argmin(fitness)]
+            self.best_fitness_overall = np.min(fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'archive_size': len(self.archive)
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, population, fitness, F_scale_variation):
+        offspring = np.zeros((self.population_size, self.dim))
+        # Adaptive scaling factor
+        self.F_scale = 0.5 + F_scale_variation * np.random.rand()  # scale factor with slight variation
+
+        for i in range(self.population_size):
+            # Select pbest from archive (if available)
+            if self.archive:
+                pbest_index = np.random.choice(len(self.archive))
+                pbest = self.archive[pbest_index][0]
+            else:
+                pbest = population[np.argmin(fitness)]
+
+            a, b, c = random.sample(range(self.population_size), 3)
+            while a == i or b == i or c == i:
+                a, b, c = random.sample(range(self.population_size), 3)
+
+            offspring[i] = population[i] + self.F_scale * (pbest - population[i] + population[a] - population[b])
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds)  # Boundary handling
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness, archive_update_threshold):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                # Prioritize diversity in archive
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1] or len(self.archive) < self.archive_size * archive_update_threshold:
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+```
+
+### Rank 2 (Overall AOCC Score on Multimodal instances with multiple components: 2.9427e-02# Name: AdaptiveGaussianSamplingEA
+# Description: Seed from AdaptiveGaussianSamplingEA
+# Code:
+```python
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+```
+
+### Rank 3 (Overall AOCC Score on Multimodal instances with multiple components: 2.3464e-02# Name: ArchipelagoDifferentialEvolution
+# Description: A multi-island differential evolution algorithm with migration to enhance global exploration in multimodal landscapes.
+# Code:
+```python
+import numpy as np
+import random
+
+
+# Name: ArchipelagoDifferentialEvolution
+# Description: A multi-island differential evolution algorithm with migration to enhance global exploration in multimodal landscapes.
+# Code:
+class ArchipelagoDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 num_islands: int = 5, population_size: int = 50, mutation_rate: float = 0.5,
+                 crossover_rate: float = 0.7, migration_interval: int = 5000, migration_size: int = 5):
+        """
+        Initializes the Archipelago Differential Evolution algorithm.
+
+        Args:
+            budget: Maximum number of function evaluations.
+            dim: Problem dimensionality.
+            lower_bounds: List of lower bounds for each dimension.
+            upper_bounds: List of upper bounds for each dimension.
+            num_islands: Number of independent islands.
+            population_size: Population size of each island.
+            mutation_rate: Mutation rate for differential evolution.
+            crossover_rate: Crossover rate for differential evolution.
+            migration_interval: Number of evaluations between migrations.
+            migration_size: Number of individuals to migrate.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds,
+                                            size=(self.population_size, self.dim))
+            self.islands.append({
+                'population': population,
+                'fitness': np.full(self.population_size, float('inf')),
+                'best_solution': None,
+                'best_fitness': float('inf')
+            })
+
+    def differential_evolution(self, island, objective_function):
+        """
+        Performs a single iteration of differential evolution on an island.
+
+        Args:
+            island: A dictionary representing an island.
+            objective_function: The function to be optimized.
+        """
+        population = island['population']
+        fitness = island['fitness']
+
+        for i in range(self.population_size):
+            # Select three distinct individuals
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+
+            # Mutation
+            mutant = population[a] + self.mutation_rate * (population[b] - population[c])
+
+            # Crossover
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate:
+                    trial_vector[j] = mutant[j]
+
+            # Clip to bounds
+            trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds)
+
+            # Evaluation
+            trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]  # Evaluate only the single trial_vector
+            self.eval_count += 1
+
+            # Selection
+            if trial_fitness < fitness[i]:
+                population[i] = trial_vector
+                fitness[i] = trial_fitness
+
+                # Update island best
+                if trial_fitness < island['best_fitness']:
+                    island['best_fitness'] = trial_fitness
+                    island['best_solution'] = trial_vector.copy()
+
+                # Update global best
+                if trial_fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = trial_fitness
+                    self.best_solution_overall = trial_vector.copy()
+
+        island['population'] = population
+        island['fitness'] = fitness
+        return island
+
+    def migrate_individuals(self):
+        """
+        Migrates individuals between islands.
+        """
+        # Select islands for migration (e.g., ring topology)
+        for i in range(self.num_islands):
+            source_island_index = i
+            destination_island_index = (i + 1) % self.num_islands  # Ring topology
+
+            # Select individuals to migrate (e.g., best individuals)
+            source_island = self.islands[source_island_index]
+            migration_candidates_indices = np.argsort(source_island['fitness'])[:self.migration_size]  # best individuals
+
+            migrants = source_island['population'][migration_candidates_indices].copy() #Ensure it becomes a new independent copy
+
+            # Replace worst individuals on the destination island with migrants
+            destination_island = self.islands[destination_island_index]
+            replacement_indices = np.argsort(destination_island['fitness'])[-self.migration_size:]  # worst individuals
+
+            destination_island['population'][replacement_indices] = migrants
+            
+            #Re-evaluate the fitness of the new migrants in the destination island.
+            new_fitnesses = []
+            for individual in migrants:
+                new_fitness =  0.0 #Temporary value to be recalculated. Avoid uninitialized value error.
+                new_fitnesses.append(new_fitness)
+
+            destination_island['fitness'][replacement_indices] = np.array(new_fitnesses) 
+            self.islands[destination_island_index] = destination_island
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the given objective function using Archipelago Differential Evolution.
+
+        Args:
+            objective_function: The function to be optimized.
+            acceptance_threshold: Not used in this algorithm.
+
+        Returns:
+            A tuple containing the best solution, its fitness, and optimization information.
+        """
+        self.eval_count = 0  # Reset for this run
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim) if self.dim > 0 else np.array([])
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            # Evolve each island independently
+            for i, island in enumerate(self.islands):
+                self.islands[i] = self.differential_evolution(island, objective_function)
+
+            # Migrate individuals between islands at regular intervals
+            if self.eval_count > 0 and self.eval_count % self.migration_interval == 0:
+                self.migrate_individuals()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'best_solution_per_island': [island['best_solution'] for island in self.islands],
+            'best_fitness_per_island': [island['best_fitness'] for island in self.islands]
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+```
+
+### Rank 4 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: AdaptivePopulationDE
+# Description: Seed from AdaptivePopulationDE
+# Code:
+```python
+import numpy as np
+import random
+# f18 aocc 0.8
+# f20 aocc 0.5
+# not so good again, get stuck in local optima
+class AdaptivePopulationDE: 
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = 10 * self.dim
+        self.min_population_size = 5 * self.dim
+        self.max_population_size = 20 * self.dim
+        self.population_adaptation_rate = 0.1
+
+        self.F = 0.5  # Mutation factor
+        self.Cr = 0.7 # Crossover rate
+
+        self.stagnation_counter = 0
+        self.stagnation_threshold = 5000
+
+        self.archive = []
+        self.archive_size = 100
+
+        self.population = None
+        self.fitness = None
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.stagnation_counter = 0
+
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        self.fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(self.fitness)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = self.fitness[best_index]
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(objective_function)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            self.update_archive(offspring, offspring_fitness)
+
+            for i in range(self.population_size):
+                if offspring_fitness[i] < self.fitness[i]:
+                    self.population[i] = offspring[i]
+                    self.fitness[i] = offspring_fitness[i]
+
+            best_index = np.argmin(self.fitness)
+            if self.fitness[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = self.fitness[best_index]
+                self.stagnation_counter = 0
+            else:
+                self.stagnation_counter += len(offspring)
+
+            self.adjust_population_size(objective_function)
+
+            if self.stagnation_counter > self.stagnation_threshold:
+                self.restart_population(objective_function)
+                self.stagnation_counter = 0
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'population_size': self.population_size
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, objective_function):
+        offspring = np.zeros((self.population_size, self.dim))
+
+        for i in range(self.population_size):
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            if len(indices) < 2:
+                continue  # Skip if not enough individuals
+
+            a, b = random.sample(indices, 2)
+
+            if self.archive and random.random() < 0.5:
+                pbest = self.archive[random.randint(0, len(self.archive) - 1)][0]
+            else:
+                pbest = self.population[np.argmin(self.fitness)]
+
+            mutant = self.population[i] + self.F * (pbest - self.population[i] + self.population[a] - self.population[b])
+
+            for j in range(self.dim):
+                if random.random() > self.Cr:
+                    mutant[j] = self.population[i][j]
+
+            offspring[i] = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1] or len(self.archive) < self.archive_size * 0.8:
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+
+    def adjust_population_size(self, objective_function):
+        if random.random() < self.population_adaptation_rate:
+            if self.stagnation_counter > self.stagnation_threshold / 2:
+                new_size = min(int(self.population_size * 1.1), self.max_population_size)
+            else:
+                new_size = max(int(self.population_size * 0.9), self.min_population_size)
+
+            new_size = int(new_size)
+            if new_size > self.population_size:
+                additional = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(new_size - self.population_size, self.dim))
+                additional_fitness = objective_function(additional)
+                self.population = np.vstack((self.population, additional))
+                self.fitness = np.concatenate((self.fitness, additional_fitness))
+                self.eval_count += len(additional)
+            elif new_size < self.population_size:
+                best_indices = np.argsort(self.fitness)[:new_size]
+                self.population = self.population[best_indices]
+                self.fitness = self.fitness[best_indices]
+
+            self.population_size = new_size
+
+    def restart_population(self, objective_function):
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        self.fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+        best_index = np.argmin(self.fitness)
+        if self.fitness[best_index] < self.best_fitness_overall:
+            self.best_solution_overall = self.population[best_index]
+            self.best_fitness_overall = self.fitness[best_index]
+```
+
+### Rank 5 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: AdaptiveGaussianArchiveEA
+# Description: Seed from AdaptiveGaussianArchiveEA
+# Code:
+```python
+import numpy as np
+class AdaptiveGaussianArchiveEA:
+    """
+    Combines adaptive Gaussian sampling with an archive to enhance exploration and exploitation in multimodal landscapes.  Employs a simple Gaussian mutation strategy and tournament selection for efficiency.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200  #Increased archive size for better diversity
+        self.sigma = 0.5 * (self.upper_bounds - self.lower_bounds) #Increased initial sigma
+        self.sigma_decay = 0.98 # Slightly faster decay
+        self.archive = []
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            parents = self._tournament_selection(population, fitness_values)
+            offspring = self._gaussian_recombination(parents)
+            offspring = self._adaptive_mutation(offspring)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            population, fitness_values = self._select_next_generation(
+                population, fitness_values, offspring, offspring_fitness
+            )
+
+            self.archive = self._update_archive(
+                np.vstack((population, offspring)),
+                np.concatenate((fitness_values, offspring_fitness))
+            )
+
+            self._update_best(offspring, offspring_fitness)
+            self.sigma *= self.sigma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        center = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        population = np.random.normal(center, self.sigma, size=(self.population_size, self.dim))
+        return np.clip(population, self.lower_bounds, self.upper_bounds)
+
+    def _tournament_selection(self, population, fitness_values):
+        tournament_size = 5
+        num_parents = self.population_size // 2
+        selected_parents = []
+
+        for _ in range(num_parents):
+            tournament = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            selected_parents.append(population[winner_index])
+
+        return np.array(selected_parents)
+
+    def _gaussian_recombination(self, parents):
+        offspring = []
+        for i in range(0, len(parents), 2):
+            parent1 = parents[i]
+            parent2 = parents[i + 1]
+            midpoint = (parent1 + parent2) / 2
+            child1 = midpoint + np.random.normal(0, self.sigma / 2, self.dim)
+            child2 = midpoint + np.random.normal(0, self.sigma / 2, self.dim)
+            offspring.extend([child1, child2])
+        return np.clip(np.array(offspring), self.lower_bounds, self.upper_bounds)
+
+    def _adaptive_mutation(self, offspring):
+        mutated = offspring + np.random.normal(0, self.sigma, size=offspring.shape)
+        return np.clip(mutated, self.lower_bounds, self.upper_bounds)
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+```
+
+### Rank 6 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: AdaptiveIslandModelES
+# Description: Implements an island model evolutionary strategy (ES) with adaptive island allocation and migration to explore multimodal landscapes effectively.
+# Code:
+```python
+import numpy as np
+import random
+
+# Name: AdaptiveIslandModelES
+# Description: Implements an island model evolutionary strategy (ES) with adaptive island allocation and migration to explore multimodal landscapes effectively.
+# Code:
+class AdaptiveIslandModelES:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 4, population_size: int = 50, mutation_rate: float = 0.1, migration_interval: int = 500, migrants_count: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.migration_interval = migration_interval
+        self.migrants_count = migrants_count
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.islands.append({
+                'population': population,
+                'fitness': np.full(self.population_size, float('inf')),
+                'best_solution': None,
+                'best_fitness': float('inf'),
+                'eval_count': 0 # Track island-specific evaluations
+            })
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0  # Reset for this run
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim) if self.dim > 0 else np.array([])
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            # Island evolution loop
+            for i in range(self.num_islands):
+                island = self.islands[i]
+                population = island['population']
+                fitness = island['fitness']
+
+                # Evaluate population fitness
+                unevaluated_indices = np.where(fitness == float('inf'))[0]
+                if len(unevaluated_indices) > 0:
+                    to_evaluate = population[unevaluated_indices]
+                    fitness_values = objective_function(to_evaluate)
+                    self.eval_count += len(fitness_values)
+                    island['eval_count'] += len(fitness_values)
+                    fitness[unevaluated_indices] = fitness_values
+
+                # Update best solution on the island
+                best_index = np.argmin(fitness)
+                if fitness[best_index] < island['best_fitness']:
+                    island['best_fitness'] = fitness[best_index]
+                    island['best_solution'] = population[best_index].copy()
+
+                # Update overall best solution
+                if island['best_fitness'] < self.best_fitness_overall:
+                    self.best_fitness_overall = island['best_fitness']
+                    self.best_solution_overall = island['best_solution'].copy()
+                    if self.best_fitness_overall <= acceptance_threshold: # Stop if acceptable fitness reached
+                        break
+
+
+                # Selection and mutation (ES)
+                parents_indices = np.argsort(fitness)[:self.population_size // 2] # Select top half parents
+                parents = population[parents_indices]
+
+                # Create offspring through recombination and mutation
+                offspring = []
+                for _ in range(self.population_size):
+                    parent1 = parents[random.randint(0, len(parents) -1)]
+                    parent2 = parents[random.randint(0, len(parents) - 1)]
+
+                    # Recombination (e.g., average the parents)
+                    child = (parent1 + parent2) / 2
+
+                    # Mutation
+                    mutation_vector = np.random.normal(0, self.mutation_rate, self.dim)
+                    child = child + mutation_vector
+
+                    # Clip to bounds
+                    child = np.clip(child, self.lower_bounds, self.upper_bounds)
+                    offspring.append(child)
+
+                offspring = np.array(offspring)
+                population = offspring.copy() # replace whole population
+                fitness = np.full(self.population_size, float('inf')) # reset fitness values for each offspring in the island
+                island['population'] = population
+                island['fitness'] = fitness
+
+
+            # Migration
+            if self.eval_count % self.migration_interval == 0:
+                self.migrate_individuals()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'islands_evaluations': [island['eval_count'] for island in self.islands]
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def migrate_individuals(self):
+        # Select individuals to migrate from each island
+        migrants = []
+        for i in range(self.num_islands):
+            island = self.islands[i]
+            fitness = island['fitness']
+            population = island['population']
+            migrant_indices = np.argsort(fitness)[:self.migrants_count]
+            migrants.append(population[migrant_indices])
+
+        # Migrate individuals between islands (ring topology)
+        for i in range(self.num_islands):
+            destination_island_index = (i + 1) % self.num_islands
+            self.islands[destination_island_index]['population'][:self.migrants_count] = migrants[i]
+            self.islands[destination_island_index]['fitness'][:self.migrants_count] = np.full(self.migrants_count, float('inf'))
+```
+
+### Rank 7 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: IslandParallelDE
+# Description: Implements a parallel Differential Evolution with multiple islands that exchange solutions to enhance global exploration in deceptive landscapes.
+# Code:
+```python
+import numpy as np
+import random
+
+# Name: IslandParallelDE
+# Description: Implements a parallel Differential Evolution with multiple islands that exchange solutions to enhance global exploration in deceptive landscapes.
+# Code:
+class IslandParallelDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 4, population_size: int = 50, crossover_rate: float = 0.7, differential_weight: float = 0.8, migration_interval: int = 500, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.differential_weight = differential_weight
+        self.migration_interval = migration_interval  # evaluations before migration occurs
+        self.migration_size = migration_size # number of individuals exchanged during migration.
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.islands = []
+        self.rng = np.random.default_rng()
+
+        for _ in range(self.num_islands):
+            population = self.rng.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.islands.append({
+                'population': population,
+                'fitness': np.full(self.population_size, float('inf')),
+                'best_solution': None,
+                'best_fitness': float('inf')
+            })
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = self.rng.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+        
+        while self.eval_count < self.budget:
+            for island_index in range(self.num_islands):
+                self.evolve_island(island_index, objective_function)
+
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                self.migrate() # Island migration
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def evolve_island(self, island_index: int, objective_function: callable):
+        island = self.islands[island_index]
+        population = island['population']
+        fitness = island['fitness']
+
+        # Evaluate initial population if it hasn't been done yet
+        if np.isinf(island['best_fitness']):
+            fitness = objective_function(population)
+            self.eval_count += len(population)
+            island['fitness'] = fitness
+            best_index = np.argmin(fitness)
+            island['best_solution'] = population[best_index].copy()
+            island['best_fitness'] = fitness[best_index]
+
+            if island['best_fitness'] < self.best_fitness_overall:
+                self.best_fitness_overall = island['best_fitness']
+                self.best_solution_overall = island['best_solution'].copy()
+
+        # Differential Evolution loop for this island
+        for i in range(self.population_size):
+            if self.eval_count >= self.budget:
+               break
+                
+            # Mutation
+            idxs = self.rng.choice(self.population_size, 3, replace=False)
+            a, b, c = population[idxs[0]], population[idxs[1]], population[idxs[2]]
+            mutant = a + self.differential_weight * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            
+            # Crossover
+            crossover_mask = self.rng.random(self.dim) < self.crossover_rate
+            trial_vector = np.where(crossover_mask, mutant, population[i])
+            
+            # Selection
+            trial_vector_reshaped = trial_vector.reshape(1, -1) # Required to call objective_function properly
+            trial_fitness = objective_function(trial_vector_reshaped)[0] # Extract the scalar value
+            self.eval_count += 1
+
+            if trial_fitness < fitness[i]:
+                population[i] = trial_vector
+                fitness[i] = trial_fitness
+
+                if trial_fitness < island['best_fitness']:
+                    island['best_solution'] = trial_vector.copy()
+                    island['best_fitness'] = trial_fitness
+                    
+                    if trial_fitness < self.best_fitness_overall:
+                        self.best_fitness_overall = trial_fitness
+                        self.best_solution_overall = trial_vector.copy()
+
+        # Update the island with the evolved population and fitness
+        island['population'] = population
+        island['fitness'] = fitness
+        self.islands[island_index] = island
+
+    def migrate(self):
+       """
+       Migrates individuals between islands to promote diversity and information sharing.
+       Chooses a random source and destination island. The worst individuals on the destination
+       island are replaced by the best individuals from the source island.
+       """
+
+       #Choose random source and dest islands to migrate between
+       source_island_index = self.rng.choice(self.num_islands)
+       destination_island_index = self.rng.choice(self.num_islands)
+
+       if source_island_index == destination_island_index:
+            return #Can't migrate to and from same islands
+
+       source_island = self.islands[source_island_index]
+       destination_island = self.islands[destination_island_index]
+
+       #Sort both islands by their fitness. Get indices
+       source_island_sorted_indices = np.argsort(source_island['fitness'])
+       destination_island_sorted_indices = np.argsort(destination_island['fitness'])
+
+       #Identify the best individuals from the source island, and the worst from destination island.
+       best_source_individuals = source_island['population'][source_island_sorted_indices[:self.migration_size]]
+       worst_dest_individuals = destination_island['population'][destination_island_sorted_indices[-self.migration_size:]]
+
+       #Replace the worst individuals from the dest. island with best source individuals.
+       destination_island['population'][destination_island_sorted_indices[-self.migration_size:]] = best_source_individuals
+
+       #Re-evaluate fitness of the migrated individuals. Fitness must be recalculated *AFTER* moving solutions
+       new_fitness_values = self.evaluate_fitness(destination_island['population'][destination_island_sorted_indices[-self.migration_size:]], objective_function)
+
+       destination_island['fitness'][destination_island_sorted_indices[-self.migration_size:]] = new_fitness_values
+
+       #Update the islands entry with new population / fitness for destination
+       self.islands[destination_island_index] = destination_island
+       
+       #Update each islands best solutions/fitness individually after the migration
+       self.update_island_best(source_island_index)
+       self.update_island_best(destination_island_index)
+
+       self.update_global_best()
+       
+
+    def evaluate_fitness(self, solutions, objective_function):
+        """Helper function that correctly passes solution fitness values to the provided objective function"""
+        fitnesses = objective_function(solutions)
+        self.eval_count += len(solutions)
+        return fitnesses
+
+    def update_island_best(self, island_index):
+        """Updates best known solution found on particular island"""
+        island = self.islands[island_index]
+        best_index = np.argmin(island['fitness'])
+        island['best_solution'] = island['population'][best_index].copy()
+        island['best_fitness'] = island['fitness'][best_index]
+        self.islands[island_index] = island   # Island list is now properly updated!
+    
+
+    def update_global_best(self):
+      """Updates global best (best fitness of any solution seen during optimization)"""
+      for island in self.islands:
+           if island['best_fitness'] < self.best_fitness_overall:
+                self.best_fitness_overall = island['best_fitness']
+                self.best_solution_overall = island['best_solution'].copy()
+
+```
+
+### Rank 8 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: IslandModelDifferentialEvolution
+# Description: An island model with Differential Evolution that uses periodic migration of the best solutions between islands to promote diversity.
+# Code:
+```python
+import numpy as np
+import random
+
+# Name: IslandModelDifferentialEvolution
+# Description: An island model with Differential Evolution that uses periodic migration of the best solutions between islands to promote diversity.
+
+class IslandModelDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 20, crossover_rate: float = 0.7, mutation_factor: float = 0.5, migration_interval: int = 500):
+        """
+        Initializes the IslandModelDifferentialEvolution algorithm.
+
+        Args:
+            budget: Max function evaluations.
+            dim: Problem dimensionality.
+            lower_bounds: List of lower bounds for each dimension.
+            upper_bounds: List of upper bounds for each dimension.
+            num_islands: Number of islands in the island model.
+            population_size: Population size of each island.
+            crossover_rate: Crossover rate for Differential Evolution.
+            mutation_factor: Mutation factor for Differential Evolution.
+            migration_interval: Number of evaluations between migrations.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_factor = mutation_factor
+        self.migration_interval = migration_interval
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.islands = []
+
+        # Initialize islands
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+            self.islands.append({
+                'population': population,
+                'fitness': np.full(self.population_size, float('inf')),
+                'best_solution': None,
+                'best_fitness': float('inf')
+            })
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the given objective function using the island model with Differential Evolution.
+
+        Args:
+            objective_function: The objective function to optimize.
+            acceptance_threshold: The acceptance threshold for convergence.
+
+        Returns:
+            A tuple containing the best solution, its fitness, and optimization information.
+        """
+        self.eval_count = 0
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                # Evaluate population
+                unevaluated_indices = np.where(self.islands[i]['fitness'] == float('inf'))[0]
+                if len(unevaluated_indices) > 0:
+                    unevaluated_population = self.islands[i]['population'][unevaluated_indices]
+                    fitness_values = objective_function(unevaluated_population)
+                    self.eval_count += len(fitness_values)
+                    self.islands[i]['fitness'][unevaluated_indices] = fitness_values
+
+                    #Update best
+                    best_index = np.argmin(self.islands[i]['fitness'])
+                    if self.islands[i]['fitness'][best_index] < self.islands[i]['best_fitness']:
+                       self.islands[i]['best_fitness'] = self.islands[i]['fitness'][best_index]
+                       self.islands[i]['best_solution'] = self.islands[i]['population'][best_index].copy()
+
+
+                # Differential Evolution
+                for j in range(self.population_size):
+                    # Mutation
+                    indices = list(range(self.population_size))
+                    indices.remove(j)
+                    a, b, c = random.sample(indices, 3)
+                    mutant_vector = self.islands[i]['population'][a] + self.mutation_factor * (self.islands[i]['population'][b] - self.islands[i]['population'][c])
+                    mutant_vector = np.clip(mutant_vector, self.lower_bounds, self.upper_bounds)
+
+                    # Crossover
+                    trial_vector = np.zeros(self.dim)
+                    for k in range(self.dim):
+                        if random.random() < self.crossover_rate or k == random.randint(0, self.dim - 1):
+                            trial_vector[k] = mutant_vector[k]
+                        else:
+                            trial_vector[k] = self.islands[i]['population'][j][k]
+
+                    # Selection
+                    trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds) #Enforce Bounds Before Eval
+
+                    trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]  # Evaluate Trial vector
+
+                    self.eval_count += 1
+                    if trial_fitness < self.islands[i]['fitness'][j]:
+                        self.islands[i]['population'][j] = trial_vector
+                        self.islands[i]['fitness'][j] = trial_fitness
+                        
+                        if trial_fitness < self.islands[i]['best_fitness']:
+                            self.islands[i]['best_fitness'] = trial_fitness
+                            self.islands[i]['best_solution'] = trial_vector.copy()
+
+                # Migration
+                if self.eval_count % self.migration_interval == 0:
+                    # Sort islands by best fitness
+                    sorted_indices = sorted(range(self.num_islands), key=lambda k: self.islands[k]['best_fitness'])
+
+                    # Migrate best solutions from top islands to bottom islands
+                    for k in range(self.num_islands // 2):
+                        source_island_index = sorted_indices[k]
+                        target_island_index = sorted_indices[self.num_islands - 1 - k]
+
+                        # Replace a random individual in the target island with the best from the source.
+                        replace_index = random.randint(0, self.population_size-1)
+                        self.islands[target_island_index]['population'][replace_index] = self.islands[source_island_index]['best_solution'].copy()
+                        self.islands[target_island_index]['fitness'][replace_index] = float('inf') #Mark as unevaluated
+
+
+
+            # Update overall best solution
+            for island in self.islands:
+                if island['best_fitness'] < self.best_fitness_overall:
+                    self.best_fitness_overall = island['best_fitness']
+                    self.best_solution_overall = island['best_solution'].copy()
+
+            if self.best_fitness_overall <= acceptance_threshold:
+                break
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+```
+
+### Rank 9 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: ArchipelagoDifferentialEvolution
+# Description: Implements a multi-island Differential Evolution with periodic migration to explore different basins of attraction.
+# Code:
+```python
+import numpy as np
+import random
+
+# Name: ArchipelagoDifferentialEvolution
+# Description: Implements a multi-island Differential Evolution with periodic migration to explore different basins of attraction.
+# Code:
+class ArchipelagoDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 20, mutation_rate: float = 0.5, crossover_rate: float = 0.7, migration_interval: int = 5000, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.populations = []
+        self.fitnesses = []
+        self.best_solutions_island = []
+        self.best_fitnesses_island = []
+
+        # Initialize islands
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+            self.populations.append(population)
+            self.fitnesses.append(np.full(self.population_size, float('inf')))  # Initialize with infinite fitness
+            self.best_solutions_island.append(None)
+            self.best_fitnesses_island.append(float('inf'))
+        
+    def differential_evolution_step(self, population, fitnesses, island_index, objective_function):
+        for i in range(self.population_size):
+            # Mutation
+            idxs = [idx for idx in range(self.population_size) if idx != i]
+            a, b, c = random.sample(idxs, 3)
+            mutant = population[a] + self.mutation_rate * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            trial = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate:
+                    trial[j] = mutant[j]
+
+            # Selection
+            f = objective_function(trial.reshape(1, -1))[0]
+            self.eval_count += 1
+
+            if f < fitnesses[i]:
+                population[i] = trial
+                fitnesses[i] = f
+
+                if f < self.best_fitnesses_island[island_index]:
+                    self.best_fitnesses_island[island_index] = f
+                    self.best_solutions_island[island_index] = np.copy(trial)
+
+                    if f < self.best_fitness_overall:
+                        self.best_fitness_overall = f
+                        self.best_solution_overall = np.copy(trial)
+        return population, fitnesses
+    
+    def migrate(self):
+        # Select migrants (best individuals from each island)
+        migrants = [np.copy(self.best_solutions_island[i]) for i in range(self.num_islands)]
+
+        # Shuffle the migrants to break correlation
+        random.shuffle(migrants)
+
+        # Replace worst individuals in each island with migrants
+        for i in range(self.num_islands):
+            worst_indices = np.argsort(self.fitnesses[i])[-self.migration_size:]
+            for j in range(self.migration_size):
+                self.populations[i][worst_indices[j]] = migrants[ (i+j) % self.num_islands ]
+                # Re-evaluate fitness after migration (important!)
+                fitness = objective_function(self.populations[i][worst_indices[j]].reshape(1, -1))[0]
+                self.fitnesses[i][worst_indices[j]] = fitness
+                self.eval_count += 1
+                # Update best solution on island, and globally
+                if fitness < self.best_fitnesses_island[i]:
+                    self.best_fitnesses_island[i] = fitness
+                    self.best_solutions_island[i] = np.copy(self.populations[i][worst_indices[j]])
+                    if fitness < self.best_fitness_overall:
+                        self.best_fitness_overall = fitness
+                        self.best_solution_overall = np.copy(self.populations[i][worst_indices[j]])
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim) if self.dim > 0 else np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0] if self.dim > 0 else float('inf')
+        self.eval_count += 1
+
+        for i in range(self.num_islands):
+            fitnesses = objective_function(self.populations[i])
+            self.eval_count += self.population_size
+            self.fitnesses[i] = fitnesses
+
+            best_index = np.argmin(fitnesses)
+            self.best_solutions_island[i] = np.copy(self.populations[i][best_index])
+            self.best_fitnesses_island[i] = fitnesses[best_index]
+
+            if fitnesses[best_index] < self.best_fitness_overall:
+                self.best_fitness_overall = fitnesses[best_index]
+                self.best_solution_overall = np.copy(self.populations[i][best_index])
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.populations[i], self.fitnesses[i] = self.differential_evolution_step(self.populations[i], self.fitnesses[i], i, objective_function)
+                
+            if self.eval_count // self.migration_interval > (self.eval_count - self.population_size*self.num_islands) // self.migration_interval:
+                self.migrate()
+                
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+```
+
+### Rank 10 (Overall AOCC Score on Multimodal instances with multiple components: 0.0000e+00# Name: AdaptiveIslandGeneticAlgorithm
+# Description: An island-based genetic algorithm that adaptively manages subpopulation diversity to explore multi-modal landscapes.
+# Code:
+```python
+import numpy as np
+import random
+
+# Name: AdaptiveIslandGeneticAlgorithm
+# Description:  An island-based genetic algorithm that adaptively manages subpopulation diversity to explore multi-modal landscapes.
+
+class AdaptiveIslandGeneticAlgorithm:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 4, population_size: int = 50, migration_interval: int = 500):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.migration_interval = migration_interval
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands and their populations
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.islands.append({
+                'population': population,
+                'fitness': np.full(self.population_size, float('inf')),
+                'mutation_rate': 0.1,  # Initial mutation rate
+                'local_best_solution': None,
+                'local_best_fitness': float('inf')
+            })
+
+    def _evaluate_population(self, island_index: int, objective_function: callable):
+        population = self.islands[island_index]['population']
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        self.islands[island_index]['fitness'] = fitness
+
+        # Update local best
+        best_index = np.argmin(fitness)
+        if fitness[best_index] < self.islands[island_index]['local_best_fitness']:
+            self.islands[island_index]['local_best_fitness'] = fitness[best_index]
+            self.islands[island_index]['local_best_solution'] = population[best_index].copy() # Important: Copy the array
+
+        # Update overall best
+        if fitness[best_index] < self.best_fitness_overall:
+            self.best_fitness_overall = fitness[best_index]
+            self.best_solution_overall = population[best_index].copy()
+
+    def _selection(self, island_index: int, num_parents: int = None):
+         if num_parents is None:
+              num_parents = self.population_size // 2
+
+         fitness = self.islands[island_index]['fitness']
+         probabilities = np.exp(-fitness / np.mean(fitness))  # Boltzmann selection
+         probabilities = probabilities / np.sum(probabilities)
+
+         indices = np.random.choice(self.population_size, size=num_parents, replace=False, p=probabilities)
+         parents = self.islands[island_index]['population'][indices]
+         return parents
+
+    def _crossover(self, parents: np.ndarray):
+        offspring = []
+        num_parents = len(parents)
+        for i in range(0, num_parents, 2):
+            if i + 1 < num_parents:
+                parent1 = parents[i]
+                parent2 = parents[i + 1]
+                crossover_point = np.random.randint(1, self.dim)
+                child1 = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+                child2 = np.concatenate((parent2[:crossover_point], parent1[crossover_point:]))
+                offspring.extend([child1, child2])
+            else:
+                 offspring.append(parents[i].copy()) #Just clone
+
+        return np.array(offspring)
+
+    def _mutation(self, offspring: np.ndarray, island_index: int):
+        mutation_rate = self.islands[island_index]['mutation_rate']
+        for i in range(len(offspring)):
+            for j in range(self.dim):
+                if random.random() < mutation_rate:
+                    offspring[i, j] += np.random.normal(0, (self.upper_bounds[j] - self.lower_bounds[j]) * 0.1)  # Gaussian mutation
+                    offspring[i, j] = np.clip(offspring[i, j], self.lower_bounds[j], self.upper_bounds[j]) #Keep within bounds
+        return offspring
+
+    def _migration(self):
+        # Migrate individuals between islands (ring topology)
+        for i in range(self.num_islands):
+            # Send a copy of the best individual
+            source_island_index = i
+            destination_island_index = (i + 1) % self.num_islands
+            best_index = np.argmin(self.islands[source_island_index]['fitness'])
+            immigrant = self.islands[source_island_index]['population'][best_index].copy()  # Important: Copy!
+            
+            # Replace a random individual in the destination island
+            replace_index = random.randint(0, self.population_size - 1)
+            self.islands[destination_island_index]['population'][replace_index] = immigrant
+            self.islands[destination_island_index]['fitness'][replace_index] = float('inf') #Invalidate fitness until re-evaluated
+
+    def _adjust_mutation_rate(self, island_index: int):
+        # Adjust mutation rate based on population diversity
+        population = self.islands[island_index]['population']
+        diversity = np.std(population) #Simple standard deviation is fast and good enough
+
+        if diversity < 0.01 * np.mean(self.upper_bounds - self.lower_bounds):  # If population is too homogeneous
+            self.islands[island_index]['mutation_rate'] *= 1.2  # Increase mutation
+            self.islands[island_index]['mutation_rate'] = min(self.islands[island_index]['mutation_rate'], 0.5) #Cap
+        else:
+            self.islands[island_index]['mutation_rate'] *= 0.95 #Gradually decrease, if diverse
+            self.islands[island_index]['mutation_rate'] = max(self.islands[island_index]['mutation_rate'], 0.01)
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0 # Reset
+        if self.dim > 0:
+             self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+             self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        #Initial evaluation of all islands
+        for i in range(self.num_islands):
+            self._evaluate_population(i, objective_function)
+
+        generation = 0
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                #Selection
+                parents = self._selection(i)
+
+                #Crossover
+                offspring = self._crossover(parents)
+
+                #Mutation
+                offspring = self._mutation(offspring, i)
+
+                #Replace old population
+                self.islands[i]['population'] = offspring
+                self.islands[i]['fitness'] = np.full(self.population_size, float('inf')) #Important!
+                self._evaluate_population(i, objective_function)
+
+                self._adjust_mutation_rate(i)
+
+            if generation % self.migration_interval == 0:
+                self._migration()
+
+            generation += 1
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+```
+
+
+
+### Guide
+Keep in mind, this is a list of design heuristics ranked from best to worst. The first algorithm in the list is the best performing on average, and the last is the worst.
+Your response must be in Markdown format and contain nothing else. It must have the following structure:
+
+"**Analysis:**
+**Experience:**"
+
+In there:
++ Meticulously analyze comments, docstrings and source code of several pairs (Better code - Worse code) in List heuristics to fill values for **Analysis:**.
+Example: "Comparing (best) vs (worst), we see ...;  (second best) vs (second worst) ...; Comparing (1st) vs (2nd), we see ...; (3rd) vs (4th) ...; Comparing (second worst) vs (worst), we see ...; Overall:"
+
++ Self-reflect to extract useful experience for design better heuristics and fill to **Experience:** (<60 words).
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-24 12:05:07 INFO Full response text: **Analysis:**
+Comparing (Rank 1) EnhancedArchiveGuidedDE vs (Rank 10) AdaptiveIslandGeneticAlgorithm, we see that EnhancedArchiveGuidedDE uses an archive to store potentially good solutions and guides the search towards them. In contrast, AdaptiveIslandGeneticAlgorithm uses a more traditional island model genetic algorithm with periodic migration and adaptive mutation rates. EnhancedArchiveGuidedDE also employs a differential evolution strategy, whereas AdaptiveIslandGeneticAlgorithm is more of standard genetic algorithm.
+
+Comparing (Rank 2) AdaptiveGaussianSamplingEA vs (Rank 9) ArchipelagoDifferentialEvolution, we see that AdaptiveGaussianSamplingEA leverages adaptive Gaussian sampling and tournament selection to generate offspring, while ArchipelagoDifferentialEvolution implements a multi-island differential evolution strategy with periodic migration. AdaptiveGaussianSamplingEA adaptively reduces its search radius by decaying sigma. ArchipelagoDifferentialEvolution uses standard mutation and crossover for DE within each island.
+
+Comparing (Rank 3) ArchipelagoDifferentialEvolution vs (Rank 4) AdaptivePopulationDE, we see that ArchipelagoDifferentialEvolution operates multiple differential evolution instances, while AdaptivePopulationDE has one adaptively sized population running differential evolution. 
+
+Comparing (Rank 8) IslandModelDifferentialEvolution vs (Rank 9) ArchipelagoDifferentialEvolution, we see ArchipelagoDifferentialEvolution implements island migration by shuffling migrants, replace worst individuals and re-evaluate fitness functions, which is an advanced technique than replacing a random individual in IslandModelDifferentialEvolution.
+
+Comparing (Rank 9) ArchipelagoDifferentialEvolution vs (Rank 10) AdaptiveIslandGeneticAlgorithm, ArchipelagoDifferentialEvolution focus primarily on Differential Evolution (DE) within islands coupled with migration, whereas AdaptiveIslandGeneticAlgorithm utilizes more typical genetic algorithm operators like crossover and mutation tailored for island models, plus adaptive mutation rate. The migration and shuffling migrants in ArchipelagoDifferentialEvolution show the strength of multi-island model.
+
+Overall:
+The better algorithms incorporate an archive or some form of memory to retain and utilize previously discovered promising solutions. They tend to use differential evolution strategies with adaptive components.  Explicit management and adaptation of mutation rates and population diversity appear to be beneficial. Island models with migration are commonly used, with more complex migration strategies generally performing better, specifically techniques that re-evaluate fitness *after* migration.
+
+**Experience:**
+Multi-population approaches, incorporating elements of archive-based methods or memory usage, adaptation of parameters, diversity maintenance through adaptive control of mutation, and advanced migration schemes should have a positive impact on finding solution in deceptive and multi-modal landscapes.
+
+2025-06-24 12:05:09 INFO Full response text: Okay, I'll help you refine your self-reflection to guide the design of better heuristics. Here's a breakdown focused on actionable insights, while avoiding the pitfalls of ineffective reflection:
+
+*   **Keywords:** Deception, Multi-modality, Adaptivity, Diversity, Memory, Migration, Parameter Control, Archive.
+
+*   **Advice:** Focus on *how* mechanisms interact. Analyze *why* specific adaptive parameter control methods fail in deceptive landscapes. Prioritize *empirical testing* of interaction effects.
+
+*   **Avoid:** Vague statements (e.g., "positive impact"). Assume interactions are always beneficial without rigorous testing. Generalizations over very different methodologies.
+
+*   **Explanation:** The goal is a more granular understanding of why certain heuristics perform (or underperform) in specified conditions allowing fine tuning, adaptation and creation of new heuristics.
+
+2025-06-24 12:05:09 INFO Generating offspring via Crossover...

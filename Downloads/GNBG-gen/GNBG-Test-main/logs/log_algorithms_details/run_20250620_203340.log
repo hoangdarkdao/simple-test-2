@@ -1,0 +1,1964 @@
+2025-06-20 20:33:41 INFO Initializing first population
+2025-06-20 20:40:29 INFO Started evolutionary loop, best so far: 0.23570339046221453
+2025-06-20 20:40:29 INFO --- Performing Long-Term Reflection at Generation 1 ---
+2025-06-20 20:40:36 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveGaussianSamplingEA vs (worst) AdaptiveMultimodalCMAES, we see that AdaptiveGaussianSamplingEA uses simpler, more efficient mutation and selection mechanisms (Gaussian mutation and tournament selection), leading to faster convergence and better exploitation. AdaptiveMultimodalCMAES, being a CMA-ES variant, is more complex and computationally expensive, potentially hindering its performance on high-dimensional problems with wide search ranges.  AdaptiveGaussianSamplingEA also includes explicit bounds handling.
+
+(second best) AdaptiveSamplingInitializationEA vs (second worst) GuidedMultimodalEvolutionaryAlgorithm: AdaptiveSamplingInitializationEA's adaptive sampling initialization is more effective than GuidedMultimodalEvolutionaryAlgorithm's simpler approach of mixing uniform and Gaussian sampling around a potential optimum.  The adaptive sampling focuses the early search more effectively.
+
+Comparing (1st) AdaptiveGaussianSamplingEA vs (2nd) AdaptiveSamplingInitializationEA, we see that AdaptiveGaussianSamplingEA's adaptive sigma reduction leads to a more refined search later in the optimization process. AdaptiveSamplingInitializationEA lacks this feature.
+
+(3rd) AdaptiveMultimodalSampling vs (4th) MultimodalAdaptiveSamplingEA: AdaptiveMultimodalSampling uses multivariate normal sampling, which is more sophisticated and allows for adapting the covariance matrix, offering better exploration of complex multimodal landscapes than the simpler approach of MultimodalAdaptiveSamplingEA.  AdaptiveMultimodalSampling also has a more explicit and well-defined method of adapting its covariance matrix, whereas the simpler code relies on heuristic step size reduction.
+
+Comparing (second worst) GuidedMultimodalEvolutionaryAlgorithm vs (worst) AdaptiveMultimodalCMAES, we see that GuidedMultimodalEvolutionaryAlgorithm utilizes a simpler guided initialization and a more direct selection mechanism that might be suitable for certain problem structures.  AdaptiveMultimodalCMAES, on the other hand, incorporates advanced covariance matrix adaptation, but potentially suffers from increased computational cost, rendering it less effective in high-dimensional scenarios.
+
+
+Overall: The best-performing algorithms leverage adaptive sampling, simpler yet effective mutation operators (Gaussian), and adaptive parameter adjustments (sigma or mutation rate).  Algorithms with complex parameter updates (like CMA-ES) or those lacking explicit boundary handling perform poorly in this high-dimensional problem.  Efficient selection mechanisms (tournament selection) also contribute to better performance than more naive strategies.
+
+**Experience:**
+
+Adaptive sampling initialization, coupled with simpler yet effective mutation and selection strategies, combined with parameter adaptation, consistently yields superior results in high-dimensional, multimodal optimization problems.  Sophisticated methods should not come at the cost of computational efficiency.
+
+2025-06-20 20:40:36 INFO Generating offspring via Crossover...
+2025-06-20 20:40:45 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:40:45 ERROR Can not run the algorithm
+2025-06-20 20:40:45 INFO Run function 20 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-20 20:40:45 INFO FeHistory: []
+2025-06-20 20:40:45 INFO Expected Optimum FE: -100
+2025-06-20 20:40:45 INFO Unimodal AOCC mean: nan
+2025-06-20 20:40:45 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:40:45 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-20 20:40:45 INFO AOCC mean: 0.0000
+2025-06-20 20:40:53 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:41:21 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1048
+2025-06-20 20:41:21 INFO FeHistory: [-79.34155256 -79.73232535 -80.30721854 ... -90.01063267 -89.86195502
+ -88.81961453]
+2025-06-20 20:41:21 INFO Expected Optimum FE: -100
+2025-06-20 20:41:21 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+import random
+
+# Name: AdaptiveGaussianSamplingEA
+# Description: Combines adaptive sampling initialization with Gaussian mutation for efficient multimodal optimization.
+# Code:
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.mutation_rate = 0.1  # Initial mutation rate
+        self.sigma = 0.5 * (self.upper_bounds - self.lower_bounds) #Initial standard deviation for Gaussian mutation
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self._adaptive_sampling_initialization(self.population_size)
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            #Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            #Crossover (intermediate recombination)
+            offspring = self._crossover(parents[0], parents[1])
+
+            #Mutation (Gaussian)
+            offspring = self._mutate(offspring)
+
+            #Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            #Replacement (Elitism) and sigma reduction
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+            #Adaptive sigma reduction
+            self.sigma *= 0.99 #Reduce sigma gradually
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                if i < num_samples // 2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j] - self.lower_bounds[j]) * 0.25,
+                                                        self.upper_bounds[j] - (self.upper_bounds[j] - self.lower_bounds[j]) * 0.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        return population[best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        offspring = 0.5 * (parent1 + parent2)  #Intermediate recombination
+        return offspring
+
+
+    def _mutate(self, individual):
+        individual += np.random.normal(0, self.sigma, self.dim)
+        individual = np.clip(individual, self.lower_bounds, self.upper_bounds)
+        return individual
+2025-06-20 20:41:21 INFO Unimodal AOCC mean: nan
+2025-06-20 20:41:21 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:41:21 INFO Multimodal (multiple components) AOCC mean: 0.1048
+2025-06-20 20:41:21 INFO AOCC mean: 0.1048
+2025-06-20 20:41:21 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f20 ---
+  Dimension: 30
+  MaxEvals: 1000000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+  Component Sigma: [ -98.3597  -98.3295 -100.      -98.0517   98.5474]
+  Component H: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1]
+  Omega: [27.21963714  8.15099647 49.48772695 35.11548021 32.89800733 26.88552999
+ 31.08853487 16.92138009 42.30414048 32.28482577 22.10635277  7.98506755
+ 12.05561276 30.59831467 29.79266986 21.65378891  5.8359291  19.28130842
+ 38.54004939 33.33728782]
+  RotationMatrix Shape: (30, 30, 5)
+  Optimum Position: [-74.99428126 -57.72196365 -64.77738751 -47.06550858 -59.32879109
+ -73.04726084 -27.10552349 -33.26871641 -60.9778004  -60.31929258
+ -64.4185942  -67.66357125 -40.27999211 -49.2555444  -68.03618264
+ -57.61170701 -37.4528783  -26.75799764 -52.50439333 -46.31602567
+ -30.70289503 -28.52813831 -28.37022685 -28.84877322 -73.5846756
+ -32.89845538 -46.94848904 -55.6069678  -72.00411552 -39.35055098]
+----------------------------------------
+
+
+### Better code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Worse code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Analyze & experience
+- Comparing (best) AdaptiveGaussianSamplingEA vs (worst) AdaptiveMultimodalCMAES, we see that AdaptiveGaussianSamplingEA uses simpler, more efficient mutation and selection mechanisms (Gaussian mutation and tournament selection), leading to faster convergence and better exploitation. AdaptiveMultimodalCMAES, being a CMA-ES variant, is more complex and computationally expensive, potentially hindering its performance on high-dimensional problems with wide search ranges.  AdaptiveGaussianSamplingEA also includes explicit bounds handling.
+
+(second best) AdaptiveSamplingInitializationEA vs (second worst) GuidedMultimodalEvolutionaryAlgorithm: AdaptiveSamplingInitializationEA's adaptive sampling initialization is more effective than GuidedMultimodalEvolutionaryAlgorithm's simpler approach of mixing uniform and Gaussian sampling around a potential optimum.  The adaptive sampling focuses the early search more effectively.
+
+Comparing (1st) AdaptiveGaussianSamplingEA vs (2nd) AdaptiveSamplingInitializationEA, we see that AdaptiveGaussianSamplingEA's adaptive sigma reduction leads to a more refined search later in the optimization process. AdaptiveSamplingInitializationEA lacks this feature.
+
+(3rd) AdaptiveMultimodalSampling vs (4th) MultimodalAdaptiveSamplingEA: AdaptiveMultimodalSampling uses multivariate normal sampling, which is more sophisticated and allows for adapting the covariance matrix, offering better exploration of complex multimodal landscapes than the simpler approach of MultimodalAdaptiveSamplingEA.  AdaptiveMultimodalSampling also has a more explicit and well-defined method of adapting its covariance matrix, whereas the simpler code relies on heuristic step size reduction.
+
+Comparing (second worst) GuidedMultimodalEvolutionaryAlgorithm vs (worst) AdaptiveMultimodalCMAES, we see that GuidedMultimodalEvolutionaryAlgorithm utilizes a simpler guided initialization and a more direct selection mechanism that might be suitable for certain problem structures.  AdaptiveMultimodalCMAES, on the other hand, incorporates advanced covariance matrix adaptation, but potentially suffers from increased computational cost, rendering it less effective in high-dimensional scenarios.
+
+
+Overall: The best-performing algorithms leverage adaptive sampling, simpler yet effective mutation operators (Gaussian), and adaptive parameter adjustments (sigma or mutation rate).  Algorithms with complex parameter updates (like CMA-ES) or those lacking explicit boundary handling perform poorly in this high-dimensional problem.  Efficient selection mechanisms (tournament selection) also contribute to better performance than more naive strategies.
+- Adaptive sampling initialization, coupled with simpler yet effective mutation and selection strategies, combined with parameter adaptation, consistently yields superior results in high-dimensional, multimodal optimization problems.  Sophisticated methods should not come at the cost of computational efficiency.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:41:21 INFO Generation 2, best so far: 0.23570339046221453
+2025-06-20 20:41:21 INFO --- Performing Long-Term Reflection at Generation 2 ---
+2025-06-20 20:41:24 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveGaussianSamplingEA` vs (worst) `MultimodalAdaptiveSamplingEA`, we see that the best uses a more sophisticated mutation strategy (adaptive Gaussian) and a more robust selection mechanism (tournament selection), leading to better exploration and exploitation. The worst uses a simpler mutation and selection, resulting in less efficient search.  `(second best)` `AdaptiveSamplingInitializationEA` vs (second worst) `AdaptiveGaussianSamplingEA` shows that adaptive sampling initialization, which concentrates initial samples near the center, gives a better starting point than uniform random initialization. Comparing (1st) vs (2nd), we see that while both use adaptive techniques, `AdaptiveGaussianSamplingEA`'s Gaussian mutation allows for finer-grained search around promising regions, leading to a better AOCC score. (3rd) `AdaptiveMultimodalSampling` vs (4th) `AdaptiveGaussianSamplingEA` shows that using a covariance matrix to adapt sampling around elites (3rd) is more effective than a simpler sigma-based adaptive mutation (4th). Comparing (second worst) `AdaptiveGaussianSamplingEA` vs (worst) `MultimodalAdaptiveSamplingEA`, the second worst has a more structured population update using tournament selection and elitism, unlike the worst's less precise selection. Overall: The top performers utilize adaptive techniques, sophisticated mutation strategies, and well-defined selection mechanisms leading to superior exploration and exploitation of the search space.  The lower-ranked algorithms often employ simpler methods that lack the same level of adaptive control and fine-grained search capabilities.
+
+
+**Experience:**
+
+Designing effective heuristics requires a balance between exploration and exploitation.  Adaptive mechanisms and sophisticated mutation strategies, combined with robust selection, are crucial for handling high-dimensional multimodal landscapes.  Careful consideration of initial population distribution also significantly impacts performance.
+
+2025-06-20 20:41:24 INFO Generating offspring via Crossover...
+2025-06-20 20:41:32 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:41:57 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1247
+2025-06-20 20:41:57 INFO FeHistory: [-81.48354806 -79.43697347 -81.86384442 ... -94.65906005 -94.65906005
+ -94.65906005]
+2025-06-20 20:41:57 INFO Expected Optimum FE: -100
+2025-06-20 20:41:57 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalGaussianEA
+import numpy as np
+
+class AdaptiveMultimodalGaussianEA:
+    """
+    Combines adaptive Gaussian mutation with multimodal initialization 
+    for efficient high-dimensional optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial sigma
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        # Multimodal Initialization: Sample more densely around the center
+        center = (self.upper_bounds + self.lower_bounds) / 2
+        self.population = np.random.normal(center, 0.1 * (self.upper_bounds - self.lower_bounds), size=(self.population_size, self.dim))
+        # Add some uniformly random samples for broader exploration
+        self.population = np.concatenate((self.population, np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size // 2, self.dim))))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size * 1.5
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Tournament Selection
+            parents = self.tournament_selection(fitness_values, k=5)
+
+            # Adaptive Gaussian Mutation
+            offspring = self.gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma Reduction (linear decay)
+            self.sigma *= (1 - (self.eval_count / self.budget) * 0.5) # more aggressive reduction later
+
+            # Elitism
+            sorted_indices = np.argsort(fitness_values)
+            self.population = self.population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-20 20:41:57 INFO Unimodal AOCC mean: nan
+2025-06-20 20:41:57 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:41:57 INFO Multimodal (multiple components) AOCC mean: 0.1247
+2025-06-20 20:41:57 INFO AOCC mean: 0.1247
+2025-06-20 20:42:06 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:42:06 ERROR Can not run the algorithm
+2025-06-20 20:42:06 INFO Run function 20 complete. FEHistory len: 100, AOCC: 0.0784
+2025-06-20 20:42:06 INFO FeHistory: [-81.39016791 -82.10328575 -81.33867473 -81.3106128  -79.30694539
+ -79.8119634  -80.99082267 -80.95225487 -81.48987543 -81.18046548
+ -82.18778674 -82.02550683 -82.24591723 -80.74289047 -80.58611888
+ -80.01724067 -80.08504164 -80.27997643 -79.29239573 -80.56428688
+ -83.54989587 -78.55340868 -81.34277373 -81.58721279 -79.90603292
+ -80.56189608 -79.75089197 -78.89164971 -81.0882705  -81.44636416
+ -81.06719207 -79.63749637 -80.42107573 -80.98545572 -81.50946199
+ -81.39312451 -81.60067621 -79.10071376 -80.64002383 -79.95646045
+ -80.77387139 -80.4349531  -81.32649951 -81.4270127  -79.82469894
+ -81.1826069  -81.76165723 -81.61254088 -79.31840808 -80.68092849
+ -77.50609139 -79.39516404 -79.45864653 -78.22752313 -78.59447697
+ -76.15951019 -77.76038267 -80.14305199 -76.6089167  -80.41103509
+ -76.86939175 -78.50857423 -79.91339249 -78.5602763  -75.19876102
+ -79.91503373 -76.66715915 -76.28856288 -76.85062821 -79.01583087
+ -77.89551113 -78.58188266 -79.25811789 -77.18442497 -76.58277555
+ -75.90504708 -79.01135891 -78.41062312 -78.45551802 -79.0667119
+ -76.2500903  -77.63143598 -79.56200546 -78.34042071 -78.24451127
+ -77.26537818 -78.14007682 -79.48680669 -80.29757495 -78.37572873
+ -77.46390668 -79.5372193  -78.04368424 -79.47940705 -79.47414761
+ -76.88417228 -79.61185389 -79.42925243 -75.53851659 -79.34689492]
+2025-06-20 20:42:06 INFO Expected Optimum FE: -100
+2025-06-20 20:42:06 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianTournamentEA
+import numpy as np
+import random
+
+class AdaptiveGaussianTournamentEA:
+    """
+    Combines adaptive Gaussian mutation with tournament selection for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.tournament_size = 10 #increased tournament size for better selection
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self._adaptive_sampling_initialization(self.population_size)
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        sigma = np.std(population, axis=0) #Initial sigma based on population spread
+
+        while self.eval_count < self.budget:
+            offspring = []
+            for _ in range(self.population_size // 2):  #Generate offspring in pairs
+                parents = self._tournament_selection(population, fitness_values, self.tournament_size)
+                child1, child2 = self._crossover(parents[0], parents[1])
+                offspring.extend([child1, child2])
+
+            offspring = np.array(offspring)
+            offspring = self._mutate(offspring, sigma) #Adaptive mutation
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size //2 *2
+
+            #Update best solution
+            for i in range(len(offspring)):
+                if offspring_fitness[i] < self.best_fitness_overall:
+                    self.best_solution_overall = offspring[i]
+                    self.best_fitness_overall = offspring_fitness[i]
+
+
+            #Combine parent and offspring, keep best
+            combined_pop = np.vstack((population, offspring))
+            combined_fit = np.concatenate((fitness_values, offspring_fitness))
+            sorted_indices = np.argsort(combined_fit)
+            population = combined_pop[sorted_indices[:self.population_size]]
+            fitness_values = combined_fit[sorted_indices[:self.population_size]]
+            sigma = np.std(population, axis=0) #Update sigma
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                if i < num_samples // 2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j] - self.lower_bounds[j]) * 0.25,
+                                                        self.upper_bounds[j] - (self.upper_bounds[j] - self.lower_bounds[j]) * 0.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        return population[best_index]
+
+    def _crossover(self, parent1, parent2):
+        crossover_point = random.randint(1, self.dim - 1)
+        child1 = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        child2 = np.concatenate((parent2[:crossover_point], parent1[crossover_point:]))
+        return child1, child2
+
+    def _mutate(self, offspring, sigma):
+        for i in range(len(offspring)):
+            for j in range(self.dim):
+                offspring[i, j] += np.random.normal(0, sigma[j] / 5)  # Adaptive mutation scale
+                offspring[i, j] = np.clip(offspring[i, j], self.lower_bounds[j], self.upper_bounds[j])
+        return offspring
+2025-06-20 20:42:06 INFO Unimodal AOCC mean: nan
+2025-06-20 20:42:06 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:42:06 INFO Multimodal (multiple components) AOCC mean: 0.0784
+2025-06-20 20:42:06 INFO AOCC mean: 0.0784
+2025-06-20 20:42:06 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f20 ---
+  Dimension: 30
+  MaxEvals: 1000000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+  Component Sigma: [ -98.3597  -98.3295 -100.      -98.0517   98.5474]
+  Component H: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1]
+  Omega: [27.21963714  8.15099647 49.48772695 35.11548021 32.89800733 26.88552999
+ 31.08853487 16.92138009 42.30414048 32.28482577 22.10635277  7.98506755
+ 12.05561276 30.59831467 29.79266986 21.65378891  5.8359291  19.28130842
+ 38.54004939 33.33728782]
+  RotationMatrix Shape: (30, 30, 5)
+  Optimum Position: [-74.99428126 -57.72196365 -64.77738751 -47.06550858 -59.32879109
+ -73.04726084 -27.10552349 -33.26871641 -60.9778004  -60.31929258
+ -64.4185942  -67.66357125 -40.27999211 -49.2555444  -68.03618264
+ -57.61170701 -37.4528783  -26.75799764 -52.50439333 -46.31602567
+ -30.70289503 -28.52813831 -28.37022685 -28.84877322 -73.5846756
+ -32.89845538 -46.94848904 -55.6069678  -72.00411552 -39.35055098]
+----------------------------------------
+
+
+### Better code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Worse code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Analyze & experience
+- Comparing (best) `AdaptiveGaussianSamplingEA` vs (worst) `MultimodalAdaptiveSamplingEA`, we see that the best uses a more sophisticated mutation strategy (adaptive Gaussian) and a more robust selection mechanism (tournament selection), leading to better exploration and exploitation. The worst uses a simpler mutation and selection, resulting in less efficient search.  `(second best)` `AdaptiveSamplingInitializationEA` vs (second worst) `AdaptiveGaussianSamplingEA` shows that adaptive sampling initialization, which concentrates initial samples near the center, gives a better starting point than uniform random initialization. Comparing (1st) vs (2nd), we see that while both use adaptive techniques, `AdaptiveGaussianSamplingEA`'s Gaussian mutation allows for finer-grained search around promising regions, leading to a better AOCC score. (3rd) `AdaptiveMultimodalSampling` vs (4th) `AdaptiveGaussianSamplingEA` shows that using a covariance matrix to adapt sampling around elites (3rd) is more effective than a simpler sigma-based adaptive mutation (4th). Comparing (second worst) `AdaptiveGaussianSamplingEA` vs (worst) `MultimodalAdaptiveSamplingEA`, the second worst has a more structured population update using tournament selection and elitism, unlike the worst's less precise selection. Overall: The top performers utilize adaptive techniques, sophisticated mutation strategies, and well-defined selection mechanisms leading to superior exploration and exploitation of the search space.  The lower-ranked algorithms often employ simpler methods that lack the same level of adaptive control and fine-grained search capabilities.
+- Designing effective heuristics requires a balance between exploration and exploitation.  Adaptive mechanisms and sophisticated mutation strategies, combined with robust selection, are crucial for handling high-dimensional multimodal landscapes.  Careful consideration of initial population distribution also significantly impacts performance.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:42:06 INFO Generation 3, best so far: 0.23570339046221453
+2025-06-20 20:42:06 INFO --- Performing Long-Term Reflection at Generation 3 ---
+2025-06-20 20:42:10 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveGaussianSamplingEA` vs (worst) `AdaptiveGaussianSamplingEA`, we see that the top-ranked algorithm utilizes a more sophisticated adaptive strategy for the Gaussian mutation's standard deviation (`sigma`), gradually reducing it over time for finer search.  The worst-ranked algorithm uses a simpler, less adaptive approach.  (second best) `AdaptiveSamplingInitializationEA` vs (second worst) `AdaptiveMultimodalSampling` shows a clear difference in the population initialization strategy. The former uses an adaptive sampling approach that concentrates initial samples near the center of the search space, whereas the latter uses simple uniform random initialization. `AdaptiveSamplingInitializationEA` also uses a more effective tournament selection mechanism and incorporates crossover. Comparing (1st) `AdaptiveGaussianSamplingEA` vs (2nd) `AdaptiveSamplingInitializationEA`, we see that the best algorithm uses both Gaussian mutation and tournament selection, which may provide more diverse exploration and exploitation of the search space. The second-best only utilizes crossover and mutation. (3rd) `AdaptiveMultimodalGaussianEA` vs (4th) `AdaptiveMultimodalSampling` highlights the difference in handling the covariance matrix. The third-ranked algorithm doesn't explicitly adapt covariance, while the fourth-ranked one uses a covariance matrix that is updated based on elite solutions, allowing for more directed sampling. Comparing (second worst) `AdaptiveMultimodalSampling` vs (worst) `AdaptiveGaussianSamplingEA`, we observe that the second-worst employs more sophisticated sampling techniques, using multivariate Gaussian sampling and adapting the covariance matrix. The worst, on the other hand, uses a simpler combination of adaptive sampling and Gaussian mutation without covariance adaptation. Overall: The higher-ranked algorithms exhibit more sophisticated adaptive mechanisms for population initialization, mutation, and selection, leading to better exploration and exploitation of the search space and better convergence properties.
+
+
+**Experience:**
+
+Developing effective EA heuristics requires careful consideration of initialization, selection, mutation, and parameter adaptation.  Adaptive mechanisms, incorporating information from past iterations, significantly improve performance in high-dimensional, multimodal landscapes.  Combining multiple strategies can lead to synergistic effects.
+
+2025-06-20 20:42:10 INFO Generating offspring via Crossover...
+2025-06-20 20:42:18 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:42:44 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1072
+2025-06-20 20:42:44 INFO FeHistory: [-77.42584929 -77.99525475 -78.02463266 ... -92.84695689 -92.84695689
+ -92.84695689]
+2025-06-20 20:42:44 INFO Expected Optimum FE: -100
+2025-06-20 20:42:44 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalGaussianEA
+import numpy as np
+
+class AdaptiveMultimodalGaussianEA:
+    """
+    Combines adaptive Gaussian sampling with multimodal initialization and covariance matrix adaptation for efficient exploration of multimodal landscapes.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial standard deviation
+        self.covariance_matrix = np.eye(self.dim)  # Initial covariance matrix
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        # Multimodal Initialization:  Sample around multiple initial points
+        self.population = np.array([np.random.normal(loc=np.random.uniform(self.lower_bounds, self.upper_bounds), scale=self.sigma) for _ in range(self.population_size)])
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Selection: Tournament selection
+            parents = self.tournament_selection(fitness_values, k=5)
+
+            # Mutation: Adaptive Gaussian Mutation with covariance matrix adaptation
+            offspring = self.gaussian_mutation(parents, self.sigma, self.covariance_matrix)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Covariance matrix adaptation (simplified)
+            elite_indices = np.argsort(fitness_values)[:self.population_size // 2]
+            elite_solutions = self.population[elite_indices]
+            self.covariance_matrix = np.cov(elite_solutions, rowvar=False) + 0.1 * np.eye(self.dim) #Regularization
+
+            # Adaptive Sigma (reduce exploration over time)
+            self.sigma *= 0.99
+
+            #Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma, covariance_matrix):
+        offspring = parents + np.random.multivariate_normal(np.zeros(self.dim), sigma**2 * covariance_matrix, size=len(parents))
+        return offspring
+
+2025-06-20 20:42:44 INFO Unimodal AOCC mean: nan
+2025-06-20 20:42:44 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:42:44 INFO Multimodal (multiple components) AOCC mean: 0.1072
+2025-06-20 20:42:44 INFO AOCC mean: 0.1072
+2025-06-20 20:42:51 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:43:16 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.0860
+2025-06-20 20:43:16 INFO FeHistory: [-74.9886728  -77.80927051 -78.42116199 ... -84.86994863 -84.86994863
+ -84.86994863]
+2025-06-20 20:43:16 INFO Expected Optimum FE: -100
+2025-06-20 20:43:16 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalGaussianSamplingEA
+import numpy as np
+import random
+
+# Name: AdaptiveMultimodalGaussianSamplingEA
+# Description: Combines adaptive Gaussian sampling with multimodal exploration for efficient global optimization.
+# Code:
+class AdaptiveMultimodalGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.elite_size = 10  # Number of elite solutions to track
+        self.initial_sigma = 0.5 * (self.upper_bounds - self.lower_bounds) #Initial Gaussian width
+        self.sigma_decay = 0.99 #Reduce Gaussian width over time
+        self.elites = None
+        self.covariance_matrix = np.eye(self.dim) # Initial covariance
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.elites = None
+        population = self._adaptive_gaussian_initialization(self.population_size)
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            self._update_elites(population, fitness_values)
+            self._update_covariance_matrix()
+            offspring = self._generate_offspring()
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            #Update best solution
+            better_indices = np.where(offspring_fitness < fitness_values)[0]
+            fitness_values[better_indices] = offspring_fitness[better_indices]
+            population[better_indices] = offspring[better_indices]
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_gaussian_initialization(self, num_samples):
+        population = np.random.normal(0.5 * (self.upper_bounds + self.lower_bounds), self.initial_sigma, size=(num_samples, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+
+    def _update_elites(self, population, fitness_values):
+        sorted_indices = np.argsort(fitness_values)
+        self.elites = population[sorted_indices[:self.elite_size]]
+
+    def _update_covariance_matrix(self):
+        if self.elites is not None:
+            centered_elites = self.elites - np.mean(self.elites, axis=0)
+            self.covariance_matrix = np.cov(centered_elites, rowvar=False)
+            # Regularization to avoid singularity:
+            self.covariance_matrix += 0.01 * np.eye(self.dim)
+
+    def _generate_offspring(self):
+        offspring = np.random.multivariate_normal(np.mean(self.elites, axis=0), self.covariance_matrix * (self.sigma_decay**self.eval_count), size=self.population_size)
+        offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+        return offspring
+
+2025-06-20 20:43:16 INFO Unimodal AOCC mean: nan
+2025-06-20 20:43:16 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:43:16 INFO Multimodal (multiple components) AOCC mean: 0.0860
+2025-06-20 20:43:16 INFO AOCC mean: 0.0860
+2025-06-20 20:43:16 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f20 ---
+  Dimension: 30
+  MaxEvals: 1000000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+  Component Sigma: [ -98.3597  -98.3295 -100.      -98.0517   98.5474]
+  Component H: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1]
+  Omega: [27.21963714  8.15099647 49.48772695 35.11548021 32.89800733 26.88552999
+ 31.08853487 16.92138009 42.30414048 32.28482577 22.10635277  7.98506755
+ 12.05561276 30.59831467 29.79266986 21.65378891  5.8359291  19.28130842
+ 38.54004939 33.33728782]
+  RotationMatrix Shape: (30, 30, 5)
+  Optimum Position: [-74.99428126 -57.72196365 -64.77738751 -47.06550858 -59.32879109
+ -73.04726084 -27.10552349 -33.26871641 -60.9778004  -60.31929258
+ -64.4185942  -67.66357125 -40.27999211 -49.2555444  -68.03618264
+ -57.61170701 -37.4528783  -26.75799764 -52.50439333 -46.31602567
+ -30.70289503 -28.52813831 -28.37022685 -28.84877322 -73.5846756
+ -32.89845538 -46.94848904 -55.6069678  -72.00411552 -39.35055098]
+----------------------------------------
+
+
+### Better code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Worse code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Analyze & experience
+- Comparing (best) `AdaptiveGaussianSamplingEA` vs (worst) `AdaptiveGaussianSamplingEA`, we see that the top-ranked algorithm utilizes a more sophisticated adaptive strategy for the Gaussian mutation's standard deviation (`sigma`), gradually reducing it over time for finer search.  The worst-ranked algorithm uses a simpler, less adaptive approach.  (second best) `AdaptiveSamplingInitializationEA` vs (second worst) `AdaptiveMultimodalSampling` shows a clear difference in the population initialization strategy. The former uses an adaptive sampling approach that concentrates initial samples near the center of the search space, whereas the latter uses simple uniform random initialization. `AdaptiveSamplingInitializationEA` also uses a more effective tournament selection mechanism and incorporates crossover. Comparing (1st) `AdaptiveGaussianSamplingEA` vs (2nd) `AdaptiveSamplingInitializationEA`, we see that the best algorithm uses both Gaussian mutation and tournament selection, which may provide more diverse exploration and exploitation of the search space. The second-best only utilizes crossover and mutation. (3rd) `AdaptiveMultimodalGaussianEA` vs (4th) `AdaptiveMultimodalSampling` highlights the difference in handling the covariance matrix. The third-ranked algorithm doesn't explicitly adapt covariance, while the fourth-ranked one uses a covariance matrix that is updated based on elite solutions, allowing for more directed sampling. Comparing (second worst) `AdaptiveMultimodalSampling` vs (worst) `AdaptiveGaussianSamplingEA`, we observe that the second-worst employs more sophisticated sampling techniques, using multivariate Gaussian sampling and adapting the covariance matrix. The worst, on the other hand, uses a simpler combination of adaptive sampling and Gaussian mutation without covariance adaptation. Overall: The higher-ranked algorithms exhibit more sophisticated adaptive mechanisms for population initialization, mutation, and selection, leading to better exploration and exploitation of the search space and better convergence properties.
+- Developing effective EA heuristics requires careful consideration of initialization, selection, mutation, and parameter adaptation.  Adaptive mechanisms, incorporating information from past iterations, significantly improve performance in high-dimensional, multimodal landscapes.  Combining multiple strategies can lead to synergistic effects.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:43:16 INFO Generation 4, best so far: 0.23570339046221453
+2025-06-20 20:43:16 INFO --- Performing Long-Term Reflection at Generation 4 ---
+2025-06-20 20:43:20 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveGaussianSamplingEA vs (worst) AdaptiveMultimodalGaussianEA, we see that AdaptiveGaussianSamplingEA uses a simpler Gaussian mutation without covariance matrix adaptation, yet achieves better performance. This suggests that the added complexity of covariance matrix adaptation in AdaptiveMultimodalGaussianEA might not be beneficial for this specific problem. AdaptiveGaussianSamplingEA also employs a more robust sigma adaptation method, gradually reducing the exploration strength, which is superior to the linear decay used in AdaptiveMultimodalGaussianEA.  (second best) AdaptiveSamplingInitializationEA vs (second worst) AdaptiveMultimodalSampling shows that a more focused initial sampling (concentrated near the center) as in AdaptiveSamplingInitializationEA leads to a better result than the uniform random initialization with later elite-based sampling of AdaptiveMultimodalSampling. AdaptiveSamplingInitializationEA's simpler mutation and crossover operators also contribute to its superior performance compared to AdaptiveMultimodalSampling's more complex multivariate normal sampling and perturbation scheme. Comparing (1st) vs (2nd), we see that AdaptiveGaussianSamplingEA's purely Gaussian approach with tournament selection and effective sigma adaptation outperforms AdaptiveSamplingInitializationEA's combination of adaptive sampling, crossover, and mutation. (3rd) vs (4th) reveals that AdaptiveMultimodalGaussianEA's multimodal initialization, though conceptually sound, doesn't offer a significant advantage over AdaptiveMultimodalSampling's simpler uniform initialization followed by adaptive sampling. Both use Gaussian mutation, but AdaptiveMultimodalGaussianEA's sigma adaptation is less effective. Comparing (second worst) AdaptiveMultimodalSampling vs (worst) AdaptiveMultimodalGaussianEA, we see AdaptiveMultimodalGaussianEA's multimodal initialization provides no clear benefit compared to uniform initialization, and its covariance adaptation is less effective than AdaptiveMultimodalSampling's approach. Overall: Simpler, more carefully tuned Gaussian mutation and effective sigma adaptation consistently outperform more complex multimodal initialization strategies and covariance adaptation for this specific problem.  Tournament selection proves effective.
+
+**Experience:**
+
+Developing effective heuristics requires a balance between exploration and exploitation.  Overly complex methods can hinder performance, and simple methods, when properly tuned, often excel.  Careful parameter tuning (like sigma adaptation) is crucial for success.
+
+2025-06-20 20:43:20 INFO Generating offspring via Crossover...
+2025-06-20 20:43:28 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:43:53 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1821
+2025-06-20 20:43:53 INFO FeHistory: [-81.7656314  -79.34495114 -79.17491298 ... -99.71179181 -99.72008249
+ -99.72682194]
+2025-06-20 20:43:53 INFO Expected Optimum FE: -100
+2025-06-20 20:43:53 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingWithFocusedInitializationEA
+import numpy as np
+
+class AdaptiveGaussianSamplingWithFocusedInitializationEA:
+    """
+    Combines focused initial population sampling near the center of the search space with adaptive Gaussian mutation for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        # Focused Initialization: Sample more densely around the center
+        center = (self.upper_bounds + self.lower_bounds) / 2
+        spread = (self.upper_bounds - self.lower_bounds) / 4  # Adjust spread as needed
+        self.population = np.random.normal(loc=center, scale=spread, size=(self.population_size, self.dim))
+        
+        #Clip to bounds after initial sampling
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Tournament Selection
+            parents = self.tournament_selection(fitness_values, k=5)
+
+            # Adaptive Gaussian Mutation
+            offspring = self.gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update Population (Elitism)
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+            
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma Reduction
+            self.sigma *= 0.995 #Slightly slower reduction
+
+            sorted_indices = np.argsort(fitness_values)
+            self.population = self.population[sorted_indices][:self.population_size]
+            fitness_values = fitness_values[sorted_indices][:self.population_size]
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-20 20:43:53 INFO Unimodal AOCC mean: nan
+2025-06-20 20:43:53 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:43:53 INFO Multimodal (multiple components) AOCC mean: 0.1821
+2025-06-20 20:43:53 INFO AOCC mean: 0.1821
+2025-06-20 20:44:01 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:44:25 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1055
+2025-06-20 20:44:25 INFO FeHistory: [-76.77292252 -76.30829443 -77.69645492 ... -89.32375387 -89.34468487
+ -89.78699463]
+2025-06-20 20:44:25 INFO Expected Optimum FE: -100
+2025-06-20 20:44:25 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianTournamentEA
+import numpy as np
+import random
+
+# Name: AdaptiveGaussianTournamentEA
+# Description: Combines adaptive Gaussian mutation with tournament selection for efficient multimodal optimization.
+# Code:
+class AdaptiveGaussianTournamentEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.sigma = (self.upper_bounds - self.lower_bounds) / 2 # Initial sigma
+        self.sigma_decay = 0.99 #Decay rate for sigma
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index].copy()
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            new_population = []
+            for _ in range(self.population_size // 2):
+                # Tournament Selection
+                parents = self._tournament_selection(population, fitness_values, 5)
+
+                # Gaussian Mutation
+                offspring1 = self._mutate(parents[0],self.sigma)
+                offspring2 = self._mutate(parents[1],self.sigma)
+                new_population.extend([offspring1, offspring2])
+
+
+            new_population = np.array(new_population)
+            new_fitness_values = objective_function(new_population)
+            self.eval_count += self.population_size
+
+            population = np.vstack((population, new_population))
+            fitness_values = np.concatenate((fitness_values, new_fitness_values))
+
+            #Elitism
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = population[best_index].copy()
+                self.best_fitness_overall = fitness_values[best_index]
+            
+            self.sigma *= self.sigma_decay #Adapt sigma
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        return population[best_index]
+
+    def _mutate(self, individual, sigma):
+        noise = np.random.normal(0, sigma, size=self.dim)
+        offspring = individual + noise
+        offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+        return offspring
+
+2025-06-20 20:44:25 INFO Unimodal AOCC mean: nan
+2025-06-20 20:44:25 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:44:25 INFO Multimodal (multiple components) AOCC mean: 0.1055
+2025-06-20 20:44:25 INFO AOCC mean: 0.1055
+2025-06-20 20:44:25 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f20 ---
+  Dimension: 30
+  MaxEvals: 1000000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+  Component Sigma: [ -98.3597  -98.3295 -100.      -98.0517   98.5474]
+  Component H: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1]
+  Omega: [27.21963714  8.15099647 49.48772695 35.11548021 32.89800733 26.88552999
+ 31.08853487 16.92138009 42.30414048 32.28482577 22.10635277  7.98506755
+ 12.05561276 30.59831467 29.79266986 21.65378891  5.8359291  19.28130842
+ 38.54004939 33.33728782]
+  RotationMatrix Shape: (30, 30, 5)
+  Optimum Position: [-74.99428126 -57.72196365 -64.77738751 -47.06550858 -59.32879109
+ -73.04726084 -27.10552349 -33.26871641 -60.9778004  -60.31929258
+ -64.4185942  -67.66357125 -40.27999211 -49.2555444  -68.03618264
+ -57.61170701 -37.4528783  -26.75799764 -52.50439333 -46.31602567
+ -30.70289503 -28.52813831 -28.37022685 -28.84877322 -73.5846756
+ -32.89845538 -46.94848904 -55.6069678  -72.00411552 -39.35055098]
+----------------------------------------
+
+
+### Better code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Worse code
+AdaptiveSamplingInitializationEA
+import numpy as np
+import random
+
+class AdaptiveSamplingInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        
+        # Adaptive Sampling Initialization:
+        population = self._adaptive_sampling_initialization(self.population_size)
+        
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values, 2)
+
+            # Crossover
+            offspring = self._crossover(parents[0], parents[1])
+
+            # Mutation
+            offspring = self._mutate(offspring)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring.reshape(1,-1))
+            self.eval_count += 1
+            
+            #Update best solution
+            if offspring_fitness[0] < self.best_fitness_overall:
+                self.best_solution_overall = offspring
+                self.best_fitness_overall = offspring_fitness[0]
+
+            # Replacement (Elitism)
+            population = np.vstack((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Elitism: keep the best solution
+            sorted_indices = np.argsort(fitness_values)
+            population = population[sorted_indices[:self.population_size]]
+            fitness_values = fitness_values[sorted_indices[:self.population_size]]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _adaptive_sampling_initialization(self, num_samples):
+        population = np.zeros((num_samples, self.dim))
+        for i in range(num_samples):
+            for j in range(self.dim):
+                # Sample more densely around the center initially.
+                if i<num_samples//2:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j] + (self.upper_bounds[j]-self.lower_bounds[j])*.25, self.upper_bounds[j] - (self.upper_bounds[j]-self.lower_bounds[j])*.25)
+                else:
+                    population[i, j] = np.random.uniform(self.lower_bounds[j], self.upper_bounds[j])
+        return population
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        tournament_indices = random.sample(range(len(population)), tournament_size)
+        tournament_fitness = fitness_values[tournament_indices]
+        best_index = tournament_indices[np.argmin(tournament_fitness)]
+        second_best_index = tournament_indices[np.argsort(tournament_fitness)[1]]
+        return population[best_index], population[second_best_index]
+
+
+    def _crossover(self, parent1, parent2):
+        if random.random() < self.crossover_rate:
+            crossover_point = random.randint(1, self.dim - 1)
+            offspring = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+        else:
+            offspring = parent1.copy()  # No crossover
+        return offspring
+
+
+    def _mutate(self, individual):
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                individual[i] += np.random.normal(0, (self.upper_bounds[i] - self.lower_bounds[i]) / 5)  # Adjust mutation scale as needed
+                individual[i] = np.clip(individual[i], self.lower_bounds[i], self.upper_bounds[i]) #Keep within bounds
+        return individual
+
+
+### Analyze & experience
+- Comparing (best) AdaptiveGaussianSamplingEA vs (worst) AdaptiveMultimodalGaussianEA, we see that AdaptiveGaussianSamplingEA uses a simpler Gaussian mutation without covariance matrix adaptation, yet achieves better performance. This suggests that the added complexity of covariance matrix adaptation in AdaptiveMultimodalGaussianEA might not be beneficial for this specific problem. AdaptiveGaussianSamplingEA also employs a more robust sigma adaptation method, gradually reducing the exploration strength, which is superior to the linear decay used in AdaptiveMultimodalGaussianEA.  (second best) AdaptiveSamplingInitializationEA vs (second worst) AdaptiveMultimodalSampling shows that a more focused initial sampling (concentrated near the center) as in AdaptiveSamplingInitializationEA leads to a better result than the uniform random initialization with later elite-based sampling of AdaptiveMultimodalSampling. AdaptiveSamplingInitializationEA's simpler mutation and crossover operators also contribute to its superior performance compared to AdaptiveMultimodalSampling's more complex multivariate normal sampling and perturbation scheme. Comparing (1st) vs (2nd), we see that AdaptiveGaussianSamplingEA's purely Gaussian approach with tournament selection and effective sigma adaptation outperforms AdaptiveSamplingInitializationEA's combination of adaptive sampling, crossover, and mutation. (3rd) vs (4th) reveals that AdaptiveMultimodalGaussianEA's multimodal initialization, though conceptually sound, doesn't offer a significant advantage over AdaptiveMultimodalSampling's simpler uniform initialization followed by adaptive sampling. Both use Gaussian mutation, but AdaptiveMultimodalGaussianEA's sigma adaptation is less effective. Comparing (second worst) AdaptiveMultimodalSampling vs (worst) AdaptiveMultimodalGaussianEA, we see AdaptiveMultimodalGaussianEA's multimodal initialization provides no clear benefit compared to uniform initialization, and its covariance adaptation is less effective than AdaptiveMultimodalSampling's approach. Overall: Simpler, more carefully tuned Gaussian mutation and effective sigma adaptation consistently outperform more complex multimodal initialization strategies and covariance adaptation for this specific problem.  Tournament selection proves effective.
+- Developing effective heuristics requires a balance between exploration and exploitation.  Overly complex methods can hinder performance, and simple methods, when properly tuned, often excel.  Careful parameter tuning (like sigma adaptation) is crucial for success.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:44:25 INFO Generation 5, best so far: 0.23570339046221453
+2025-06-20 20:44:25 INFO --- Performing Long-Term Reflection at Generation 5 ---
+2025-06-20 20:44:28 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveGaussianSamplingEA vs (worst) AdaptiveMultimodalSampling, we see that the best uses simpler Gaussian mutation and tournament selection, resulting in less computational overhead and more direct optimization.  The worst uses multivariate normal sampling and a more complex elite selection and covariance adaptation, which can be computationally expensive and may not always improve performance. (second best) AdaptiveGaussianSamplingWithFocusedInitializationEA vs (second worst) AdaptiveMultimodalGaussianEA show similar trends; focused initialization provides a superior starting point compared to simply adding random samples.  Comparing (1st) vs (2nd), we see that the focused initialization in the second-best algorithm provides a slight advantage, but the simpler mutation strategy in the best algorithm might be more robust. (3rd) AdaptiveSamplingInitializationEA vs (4th) AdaptiveMultimodalGaussianEA, the former performs better despite less sophisticated mutation; its adaptive sampling initialization scheme better explores the search space in fewer evaluations.  Comparing (second worst) AdaptiveMultimodalGaussianEA vs (worst) AdaptiveMultimodalSampling, we see that direct Gaussian mutation (second worst) is more efficient than the adaptive multimodal sampling (worst) that suffers from higher computational cost and slower convergence. Overall: Simpler, more direct methods often outperform more complex ones, especially with high-dimensional problems like GNBG f20.  Focused initialization significantly enhances performance.
+
+**Experience:**
+
+Prioritizing efficient search strategies over complex adaptation methods yields better performance in high-dimensional multimodal problems.  Simple selection and mutation operators, combined with a well-designed initialization, are crucial for effectiveness.
+
+2025-06-20 20:44:28 INFO Generating offspring via Crossover...
+2025-06-20 20:44:37 INFO --- GNBG Problem Parameters for f20 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.4901829  0.25862884 0.37043014 0.37440768 0.26098797 0.491006
+ 0.27569772 0.45404864 0.42314776 0.27195433]
+----------------------------------------
+2025-06-20 20:45:01 INFO Run function 20 complete. FEHistory len: 100000, AOCC: 0.1331
+2025-06-20 20:45:01 INFO FeHistory: [-75.8397688  -77.66013994 -77.56661019 ... -95.84863926 -95.84863926
+ -95.84863926]
+2025-06-20 20:45:01 INFO Expected Optimum FE: -100
+2025-06-20 20:45:01 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingWithFocusedInitializationEA
+import numpy as np
+
+class AdaptiveGaussianSamplingWithFocusedInitializationEA:
+    """
+    Combines focused initialization with adaptive Gaussian sampling for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        # Focused Initialization:  Sample around potential optima (if known, otherwise use uniform)
+        num_init_samples = int(0.2 * self.population_size) # 20% of population for focused sampling
+        if self.dim > 0:  # avoid error in case dim is 0.
+            init_points = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_init_samples, self.dim))
+            #Adding some focused sampling near the center
+            init_points = np.concatenate((init_points, np.random.normal(0, 20, size=(num_init_samples, self.dim))))
+        else:
+            init_points = np.array([])
+            
+        remaining_samples = self.population_size - 2 * num_init_samples
+        if remaining_samples > 0 and self.dim > 0:
+            uniform_points = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(remaining_samples, self.dim))
+            self.population = np.concatenate((init_points, uniform_points))
+        elif self.dim > 0:
+            self.population = init_points
+        else:
+            self.population = np.array([])
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            parents = self.tournament_selection(fitness_values, k=5)
+            offspring = self.gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            self.sigma *= 0.99  # Adaptive sigma reduction
+
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+2025-06-20 20:45:01 INFO Unimodal AOCC mean: nan
+2025-06-20 20:45:01 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:45:01 INFO Multimodal (multiple components) AOCC mean: 0.1331
+2025-06-20 20:45:01 INFO AOCC mean: 0.1331

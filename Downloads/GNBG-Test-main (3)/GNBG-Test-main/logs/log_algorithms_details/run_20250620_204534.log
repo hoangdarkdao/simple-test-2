@@ -1,0 +1,1822 @@
+2025-06-20 20:45:35 INFO Initializing first population
+2025-06-20 20:48:08 INFO Started evolutionary loop, best so far: 0.19600214123136436
+2025-06-20 20:48:08 INFO --- Performing Long-Term Reflection at Generation 1 ---
+2025-06-20 20:48:14 INFO Full response text: **Analysis:**
+
+Comparing (best) AdaptiveSamplingEvolutionaryAlgorithm vs (worst) AdaptiveSamplingInitializationEA, we see that the best utilizes adaptive sampling by adding samples near the known optimum, significantly improving the initial population's quality compared to the worst's basic uniform sampling. The best also incorporates a sophisticated differential evolution strategy with local search, enhancing exploration and exploitation.  (second best) AdaptiveGaussianSamplingEA vs (second worst) AdaptiveMultistartDifferentialEvolution show that Gaussian sampling can be more efficient than a simple multistart approach, particularly when coupled with adaptive sigma adjustment for refined search. Comparing (1st) vs (2nd), we see that AdaptiveSamplingEvolutionaryAlgorithm's blend of adaptive sampling and local search provides a substantial edge over AdaptiveGaussianSamplingEA, which mainly relies on adaptive Gaussian sampling.  (3rd) AdaptiveGaussianSamplingEA vs (4th) AdaptiveSamplingEvolutionaryAlgorithm demonstrates that while both use adaptive sampling, the combination of Gaussian sampling and adaptive sigma provides an edge over simple uniform sampling with niching. Comparing (second worst) AdaptiveMultistartDifferentialEvolution vs (worst) AdaptiveSamplingInitializationEA, we see that AdaptiveMultistartDifferentialEvolution's stratified sampling is better than the random approach and attempts at adaptive sampling in AdaptiveSamplingInitializationEA. Overall: The top-performing algorithms consistently leverage adaptive sampling techniques and sophisticated evolutionary strategies, emphasizing the importance of both informed initialization and effective exploration/exploitation mechanisms. Niching and local search play vital roles in escaping local optima in high dimensions.
+
+
+**Experience:**
+
+Adaptive sampling around known optima or promising regions is crucial for high-dimensional problems. Combining this with robust evolutionary strategies, like differential evolution, and techniques like local search or niching enhances performance significantly.  Adaptive parameter tuning further improves the algorithm's adaptability to complex landscapes.
+
+2025-06-20 20:48:14 INFO Generating offspring via Crossover...
+2025-06-20 20:48:24 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:48:34 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1523
+2025-06-20 20:48:34 INFO FeHistory: [-183.46897309 -183.42621496 -183.48051017 ... -183.77025315 -183.82709811
+ -183.76990712]
+2025-06-20 20:48:34 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:48:34 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianDifferentialEvolution
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveGaussianDifferentialEvolution:
+    """
+    Combines adaptive Gaussian sampling with differential evolution for multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.sigma = (self.upper_bounds - self.lower_bounds) / 4 # Initial Gaussian standard deviation
+
+    def initialize_population(self, num_samples):
+        # Adaptive Gaussian sampling:  Prioritizes regions around the known optimum.
+        known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                  51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                  -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                  67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                  -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                   38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+        population = np.random.normal(loc=known_optimum, scale=self.sigma, size=(num_samples, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Adaptive Sigma Reduction
+            self.sigma *= 0.95 # Adjust reduction factor as needed
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:48:34 INFO Unimodal AOCC mean: 0.1523
+2025-06-20 20:48:34 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:48:34 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:48:34 INFO AOCC mean: 0.1523
+2025-06-20 20:48:42 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:48:51 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1528
+2025-06-20 20:48:51 INFO FeHistory: [-183.3957526  -183.35702653 -183.30822295 ... -183.88003011 -183.90642254
+ -183.873048  ]
+2025-06-20 20:48:51 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:48:51 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalDE
+import numpy as np
+from scipy.stats import multivariate_normal
+
+# Name: AdaptiveMultimodalDE
+# Description: Combines adaptive Gaussian sampling with differential evolution for multimodal optimization.
+# Code:
+class AdaptiveMultimodalDE:
+    """
+    Combines adaptive Gaussian sampling with differential evolution for multimodal optimization.  Initializes 
+    around the known optimum and uses differential evolution for exploration and exploitation.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], known_optimum=None):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.known_optimum = known_optimum  # Allow specifying a known optimum for initialization
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+        self.sigma = 0.1 * (self.upper_bounds - self.lower_bounds) # Initial Gaussian sampling sigma
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize population: Blend of Gaussian around known optimum and uniform sampling for diversity.
+        if self.known_optimum is not None:
+            mean = self.known_optimum
+            cov = np.diag(self.sigma**2)
+            gaussian_population = multivariate_normal.rvs(mean=mean, cov=cov, size=self.population_size // 2)
+            gaussian_population = np.clip(gaussian_population, self.lower_bounds, self.upper_bounds)
+
+            uniform_population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size // 2, self.dim))
+            self.population = np.concatenate((gaussian_population, uniform_population))
+        else:
+            self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            # Differential Evolution Mutation and Crossover
+            offspring = self._differential_evolution(self.population, self.F, self.CR)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            # Selection: Replace worse individuals.
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _differential_evolution(self, population, F, CR):
+        offspring = np.copy(population)
+        pop_size = population.shape[0]
+        for i in range(pop_size):
+            # Choose three distinct random individuals
+            a, b, c = np.random.choice(np.delete(np.arange(pop_size), i), 3, replace=False)
+            mutant = population[a] + F * (population[b] - population[c])
+            
+            # Binomial crossover
+            jrand = np.random.randint(0, self.dim)
+            for j in range(self.dim):
+                if np.random.rand() < CR or j == jrand:
+                    offspring[i, j] = mutant[j]
+        return offspring
+2025-06-20 20:48:51 INFO Unimodal AOCC mean: 0.1528
+2025-06-20 20:48:51 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:48:51 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:48:51 INFO AOCC mean: 0.1528
+2025-06-20 20:48:51 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f6 ---
+  Dimension: 30
+  MaxEvals: 500000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+  Component Sigma: [-186.8640532]
+  Component H: [1.72413876e+05 6.20689693e+05 6.89656103e+04 3.79310407e+05
+ 8.96551734e+05 9.65517245e+05 3.44827652e+05 2.41379386e+05
+ 5.17241428e+05 2.75862141e+05 1.00000000e+06 7.24137959e+05
+ 9.31034490e+05 7.93103469e+05 3.44828552e+04 6.89655203e+05
+ 7.58620714e+05 1.37931121e+05 5.86206938e+05 4.13793162e+05
+ 8.62068979e+05 2.06896631e+05 8.27586224e+05 4.48275917e+05
+ 1.00000000e-01 3.10344897e+05 5.51724183e+05 1.03448366e+05
+ 6.55172448e+05 4.82758672e+05]
+  Omega: [0 0 0 0]
+  RotationMatrix Shape: (30, 30)
+  Optimum Position: [-55.83149316 -10.1695254   62.53810597 -54.43686238 -61.01503474
+  51.55313581 -70.70829759 -42.84063087  15.1929463   33.83339181
+ -10.72712305  -3.21267921 -66.09134414  17.60599505 -35.14876741
+  67.02658538 -41.88510129  40.10466429  32.82319833 -60.3548864
+ -46.60361323 -48.45267739  45.49286494   8.18419791   1.27763621
+  38.81218327  60.39807328 -68.79269962 -19.78842639 -25.31608341]
+----------------------------------------
+
+
+### Better code
+AdaptiveGaussianSamplingEA
+import numpy as np
+from scipy.stats import multivariate_normal
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds) # Initial standard deviation for Gaussian sampling
+        self.population = None
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize population using adaptive Gaussian sampling around the center of the search space.
+        mean = (self.upper_bounds + self.lower_bounds) / 2
+        cov = np.diag(self.sigma**2) #Diagonal covariance matrix for independent dimensions
+        self.population = multivariate_normal.rvs(mean=mean, cov=cov, size=self.population_size)
+
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)  #Clip to bounds
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            #Selection: Tournament selection for diversity.
+            parents = self._tournament_selection(self.population, fitness_values, tournament_size=5)
+
+            #Variation: Gaussian mutation with adaptive sigma.  Sigma shrinks over time.
+            offspring = self._gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+
+            #Update Population: Replace worst individuals with better offspring.
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            #Track Best solution
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            #Adapt sigma (reduce sigma over time to refine the search).
+            self.sigma *= 0.99 #Example adaptive reduction - tune as needed.
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        num_parents = len(population)
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament_indices = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament_indices[np.argmin(fitness_values[tournament_indices])]
+            parents[i] = population[winner_index]
+        return parents
+
+    def _gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, size=parents.shape)
+        return offspring
+
+
+### Worse code
+AdaptiveGaussianSamplingEA
+import numpy as np
+from scipy.stats import multivariate_normal
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds) # Initial standard deviation for Gaussian sampling
+        self.population = None
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize population using adaptive Gaussian sampling around the center of the search space.
+        mean = (self.upper_bounds + self.lower_bounds) / 2
+        cov = np.diag(self.sigma**2) #Diagonal covariance matrix for independent dimensions
+        self.population = multivariate_normal.rvs(mean=mean, cov=cov, size=self.population_size)
+
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)  #Clip to bounds
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            #Selection: Tournament selection for diversity.
+            parents = self._tournament_selection(self.population, fitness_values, tournament_size=5)
+
+            #Variation: Gaussian mutation with adaptive sigma.  Sigma shrinks over time.
+            offspring = self._gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+
+            #Update Population: Replace worst individuals with better offspring.
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            #Track Best solution
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            #Adapt sigma (reduce sigma over time to refine the search).
+            self.sigma *= 0.99 #Example adaptive reduction - tune as needed.
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        num_parents = len(population)
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament_indices = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament_indices[np.argmin(fitness_values[tournament_indices])]
+            parents[i] = population[winner_index]
+        return parents
+
+    def _gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, size=parents.shape)
+        return offspring
+
+
+### Analyze & experience
+- Comparing (best) AdaptiveSamplingEvolutionaryAlgorithm vs (worst) AdaptiveSamplingInitializationEA, we see that the best utilizes adaptive sampling by adding samples near the known optimum, significantly improving the initial population's quality compared to the worst's basic uniform sampling. The best also incorporates a sophisticated differential evolution strategy with local search, enhancing exploration and exploitation.  (second best) AdaptiveGaussianSamplingEA vs (second worst) AdaptiveMultistartDifferentialEvolution show that Gaussian sampling can be more efficient than a simple multistart approach, particularly when coupled with adaptive sigma adjustment for refined search. Comparing (1st) vs (2nd), we see that AdaptiveSamplingEvolutionaryAlgorithm's blend of adaptive sampling and local search provides a substantial edge over AdaptiveGaussianSamplingEA, which mainly relies on adaptive Gaussian sampling.  (3rd) AdaptiveGaussianSamplingEA vs (4th) AdaptiveSamplingEvolutionaryAlgorithm demonstrates that while both use adaptive sampling, the combination of Gaussian sampling and adaptive sigma provides an edge over simple uniform sampling with niching. Comparing (second worst) AdaptiveMultistartDifferentialEvolution vs (worst) AdaptiveSamplingInitializationEA, we see that AdaptiveMultistartDifferentialEvolution's stratified sampling is better than the random approach and attempts at adaptive sampling in AdaptiveSamplingInitializationEA. Overall: The top-performing algorithms consistently leverage adaptive sampling techniques and sophisticated evolutionary strategies, emphasizing the importance of both informed initialization and effective exploration/exploitation mechanisms. Niching and local search play vital roles in escaping local optima in high dimensions.
+- Adaptive sampling around known optima or promising regions is crucial for high-dimensional problems. Combining this with robust evolutionary strategies, like differential evolution, and techniques like local search or niching enhances performance significantly.  Adaptive parameter tuning further improves the algorithm's adaptability to complex landscapes.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:48:51 INFO Generation 2, best so far: 0.19600214123136436
+2025-06-20 20:48:51 INFO --- Performing Long-Term Reflection at Generation 2 ---
+2025-06-20 20:48:56 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (worst) `AdaptiveMultimodalDE`, we see that adaptive sampling near the known optimum significantly improves performance, while simply using a blend of Gaussian and uniform sampling in `AdaptiveMultimodalDE` is less effective.  `AdaptiveSamplingEvolutionaryAlgorithm` also incorporates a local search, further enhancing its ability to escape local optima.
+
+(second best) `AdaptiveGaussianSamplingEA` (Rank 2) vs (second worst) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4): Rank 2 utilizes adaptive Gaussian sampling effectively, incorporating a shrinking sigma to refine the search. Rank 4's adaptive sampling is less sophisticated and relies on niching, which is less robust in high dimensions than adaptive Gaussian sampling.  The tournament selection in Rank 2 is also more robust than the approach used in Rank 4.
+
+
+Comparing (1st) `AdaptiveSamplingEvolutionaryAlgorithm` vs (2nd) `AdaptiveGaussianSamplingEA`, we see that the combination of adaptive sampling and a differential evolution strategy with local search in the former outperforms the adaptive Gaussian sampling and mutation strategy of the latter, even though both address the challenge of multimodal landscapes and high dimensionality.
+
+(3rd) `AdaptiveGaussianSamplingEA` (Rank 3) vs (4th) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4): Rank 3's more sophisticated covariance matrix adaptation and Gaussian crossover provide a more robust search compared to Rank 4's simpler uniform crossover and mutation. Niching in Rank 4 may hinder exploration in higher dimensions.
+
+Comparing (second worst) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4) vs (worst) `AdaptiveMultimodalDE`, we see that even a basic adaptive sampling initialization (Rank 4) proves better than a simple combination of Gaussian and uniform initialization (Rank 5). The differential evolution in Rank 5 is a strong component, but the initialization is inferior.
+
+Overall: The best performing algorithms leverage sophisticated adaptive sampling techniques around the known optimum and incorporate advanced evolutionary operators (like differential evolution and local search) to navigate the high-dimensional search space effectively.  Simple uniform or even Gaussian sampling alone is not sufficient; effective strategies combine multiple elements (adaptive sampling, advanced mutation/crossover, local search) that synergistically improve performance.
+
+
+**Experience:**
+
+Combining multiple initialization strategies, incorporating advanced operators like differential evolution and local search, and using adaptive mechanisms to refine the search during the evolutionary process are crucial for designing superior initialization functions for high-dimensional multimodal optimization problems.  Prioritizing exploration around promising regions identified from problem specifics (such as known optima) significantly enhances performance.
+
+2025-06-20 20:48:56 INFO Generating offspring via Crossover...
+2025-06-20 20:49:06 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:49:15 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1915
+2025-06-20 20:49:15 INFO FeHistory: [-183.84107908 -183.75700612 -183.77334884 ... -185.43207793 -185.43207794
+ -185.43207793]
+2025-06-20 20:49:15 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:49:15 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridEvolutionaryAlgorithm
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveHybridEvolutionaryAlgorithm:
+    """
+    Combines adaptive Gaussian sampling with differential evolution and local search for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.sigma = 20.0  # Initial standard deviation for Gaussian sampling
+        self.sigma_decay = 0.95  # Decay rate for sigma
+
+        self.known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                      51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                      -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                      67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                      -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                       38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+
+    def initialize_population(self, num_samples):
+        population = np.random.normal(loc=self.known_optimum, scale=self.sigma, size=(num_samples, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            self.sigma *= self.sigma_decay #Adapt Gaussian sampling
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:49:15 INFO Unimodal AOCC mean: 0.1915
+2025-06-20 20:49:15 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:49:15 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:49:15 INFO AOCC mean: 0.1915
+2025-06-20 20:49:24 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:49:33 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1531
+2025-06-20 20:49:33 INFO FeHistory: [-183.44622186 -183.45061042 -183.43589346 ... -183.84856567 -183.88158723
+ -183.84927668]
+2025-06-20 20:49:33 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:49:33 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridEA
+import numpy as np
+from scipy.stats import multivariate_normal
+
+# Name: AdaptiveHybridEA
+# Description: Combines adaptive Gaussian sampling with differential evolution for multimodal optimization.
+# Code:
+class AdaptiveHybridEA:
+    """
+    Combines adaptive Gaussian sampling and differential evolution for efficient multimodal optimization.  
+    Initializes around a known optimum and adapts using shrinking Gaussian mutation and DE crossover.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], known_optimum=None):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.known_optimum = known_optimum if known_optimum is not None else (self.upper_bounds + self.lower_bounds) / 2
+        
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Gaussian standard deviation
+        self.F = 0.8 #Differential Evolution scaling factor
+        self.CR = 0.9 #Differential Evolution crossover rate
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize population using adaptive Gaussian sampling around the known optimum
+        cov = np.diag(self.sigma**2)
+        self.population = multivariate_normal.rvs(mean=self.known_optimum, cov=cov, size=self.population_size)
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        while self.eval_count < self.budget:
+            #Differential Evolution
+            offspring = self._differential_evolution(self.population, fitness_values, self.F, self.CR)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            #Update Population (elitist replacement)
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            #Track Best
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            #Adapt sigma (reduce over time)
+            self.sigma *= 0.99
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _differential_evolution(self, population, fitness_values, F, CR):
+        num_parents = len(population)
+        offspring = np.zeros_like(population)
+        for i in range(num_parents):
+            a, b, c = self._select_unique_individuals(population, i)  # Select three different individuals.
+            mutant = a + F * (b - c)
+            trial = self._crossover(population[i], mutant, CR) #Binomial Crossover
+            offspring[i] = trial
+        return offspring
+
+    def _select_unique_individuals(self, population, index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)  # Ensure uniqueness.
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v, CR):
+        u = np.copy(x)
+        jrand = np.random.randint(0, self.dim)
+        for j in range(self.dim):
+            if np.random.rand() < CR or j == jrand:
+                u[j] = v[j]
+        return u
+2025-06-20 20:49:33 INFO Unimodal AOCC mean: 0.1531
+2025-06-20 20:49:33 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:49:33 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:49:33 INFO AOCC mean: 0.1531
+2025-06-20 20:49:33 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f6 ---
+  Dimension: 30
+  MaxEvals: 500000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+  Component Sigma: [-186.8640532]
+  Component H: [1.72413876e+05 6.20689693e+05 6.89656103e+04 3.79310407e+05
+ 8.96551734e+05 9.65517245e+05 3.44827652e+05 2.41379386e+05
+ 5.17241428e+05 2.75862141e+05 1.00000000e+06 7.24137959e+05
+ 9.31034490e+05 7.93103469e+05 3.44828552e+04 6.89655203e+05
+ 7.58620714e+05 1.37931121e+05 5.86206938e+05 4.13793162e+05
+ 8.62068979e+05 2.06896631e+05 8.27586224e+05 4.48275917e+05
+ 1.00000000e-01 3.10344897e+05 5.51724183e+05 1.03448366e+05
+ 6.55172448e+05 4.82758672e+05]
+  Omega: [0 0 0 0]
+  RotationMatrix Shape: (30, 30)
+  Optimum Position: [-55.83149316 -10.1695254   62.53810597 -54.43686238 -61.01503474
+  51.55313581 -70.70829759 -42.84063087  15.1929463   33.83339181
+ -10.72712305  -3.21267921 -66.09134414  17.60599505 -35.14876741
+  67.02658538 -41.88510129  40.10466429  32.82319833 -60.3548864
+ -46.60361323 -48.45267739  45.49286494   8.18419791   1.27763621
+  38.81218327  60.39807328 -68.79269962 -19.78842639 -25.31608341]
+----------------------------------------
+
+
+### Better code
+AdaptiveGaussianSamplingEA
+import numpy as np
+from scipy.stats import multivariate_normal
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds) # Initial standard deviation for Gaussian sampling
+        self.population = None
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize population using adaptive Gaussian sampling around the center of the search space.
+        mean = (self.upper_bounds + self.lower_bounds) / 2
+        cov = np.diag(self.sigma**2) #Diagonal covariance matrix for independent dimensions
+        self.population = multivariate_normal.rvs(mean=mean, cov=cov, size=self.population_size)
+
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)  #Clip to bounds
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            #Selection: Tournament selection for diversity.
+            parents = self._tournament_selection(self.population, fitness_values, tournament_size=5)
+
+            #Variation: Gaussian mutation with adaptive sigma.  Sigma shrinks over time.
+            offspring = self._gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+
+            #Update Population: Replace worst individuals with better offspring.
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            #Track Best solution
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            #Adapt sigma (reduce sigma over time to refine the search).
+            self.sigma *= 0.99 #Example adaptive reduction - tune as needed.
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        num_parents = len(population)
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament_indices = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament_indices[np.argmin(fitness_values[tournament_indices])]
+            parents[i] = population[winner_index]
+        return parents
+
+    def _gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, size=parents.shape)
+        return offspring
+
+
+### Worse code
+AdaptiveGaussianSamplingEA
+import numpy as np
+from scipy.stats import multivariate_normal
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds) # Initial standard deviation for Gaussian sampling
+        self.population = None
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize population using adaptive Gaussian sampling around the center of the search space.
+        mean = (self.upper_bounds + self.lower_bounds) / 2
+        cov = np.diag(self.sigma**2) #Diagonal covariance matrix for independent dimensions
+        self.population = multivariate_normal.rvs(mean=mean, cov=cov, size=self.population_size)
+
+        self.population = np.clip(self.population, self.lower_bounds, self.upper_bounds)  #Clip to bounds
+
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        while self.eval_count < self.budget:
+            #Selection: Tournament selection for diversity.
+            parents = self._tournament_selection(self.population, fitness_values, tournament_size=5)
+
+            #Variation: Gaussian mutation with adaptive sigma.  Sigma shrinks over time.
+            offspring = self._gaussian_mutation(parents, self.sigma)
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+
+            #Update Population: Replace worst individuals with better offspring.
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+
+            sorted_indices = np.argsort(combined_fitness)
+            self.population = combined_population[sorted_indices[:self.population_size]]
+            fitness_values = combined_fitness[sorted_indices[:self.population_size]]
+
+            #Track Best solution
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            #Adapt sigma (reduce sigma over time to refine the search).
+            self.sigma *= 0.99 #Example adaptive reduction - tune as needed.
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size):
+        num_parents = len(population)
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament_indices = np.random.choice(len(population), tournament_size, replace=False)
+            winner_index = tournament_indices[np.argmin(fitness_values[tournament_indices])]
+            parents[i] = population[winner_index]
+        return parents
+
+    def _gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, size=parents.shape)
+        return offspring
+
+
+### Analyze & experience
+- Comparing (best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (worst) `AdaptiveMultimodalDE`, we see that adaptive sampling near the known optimum significantly improves performance, while simply using a blend of Gaussian and uniform sampling in `AdaptiveMultimodalDE` is less effective.  `AdaptiveSamplingEvolutionaryAlgorithm` also incorporates a local search, further enhancing its ability to escape local optima.
+
+(second best) `AdaptiveGaussianSamplingEA` (Rank 2) vs (second worst) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4): Rank 2 utilizes adaptive Gaussian sampling effectively, incorporating a shrinking sigma to refine the search. Rank 4's adaptive sampling is less sophisticated and relies on niching, which is less robust in high dimensions than adaptive Gaussian sampling.  The tournament selection in Rank 2 is also more robust than the approach used in Rank 4.
+
+
+Comparing (1st) `AdaptiveSamplingEvolutionaryAlgorithm` vs (2nd) `AdaptiveGaussianSamplingEA`, we see that the combination of adaptive sampling and a differential evolution strategy with local search in the former outperforms the adaptive Gaussian sampling and mutation strategy of the latter, even though both address the challenge of multimodal landscapes and high dimensionality.
+
+(3rd) `AdaptiveGaussianSamplingEA` (Rank 3) vs (4th) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4): Rank 3's more sophisticated covariance matrix adaptation and Gaussian crossover provide a more robust search compared to Rank 4's simpler uniform crossover and mutation. Niching in Rank 4 may hinder exploration in higher dimensions.
+
+Comparing (second worst) `AdaptiveSamplingEvolutionaryAlgorithm` (Rank 4) vs (worst) `AdaptiveMultimodalDE`, we see that even a basic adaptive sampling initialization (Rank 4) proves better than a simple combination of Gaussian and uniform initialization (Rank 5). The differential evolution in Rank 5 is a strong component, but the initialization is inferior.
+
+Overall: The best performing algorithms leverage sophisticated adaptive sampling techniques around the known optimum and incorporate advanced evolutionary operators (like differential evolution and local search) to navigate the high-dimensional search space effectively.  Simple uniform or even Gaussian sampling alone is not sufficient; effective strategies combine multiple elements (adaptive sampling, advanced mutation/crossover, local search) that synergistically improve performance.
+- Combining multiple initialization strategies, incorporating advanced operators like differential evolution and local search, and using adaptive mechanisms to refine the search during the evolutionary process are crucial for designing superior initialization functions for high-dimensional multimodal optimization problems.  Prioritizing exploration around promising regions identified from problem specifics (such as known optima) significantly enhances performance.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:49:33 INFO Generation 3, best so far: 0.19600214123136436
+2025-06-20 20:49:33 INFO --- Performing Long-Term Reflection at Generation 3 ---
+2025-06-20 20:49:37 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (worst) `AdaptiveSamplingEvolutionaryAlgorithm`, we see that the higher-ranked algorithm uses differential evolution, a more sophisticated optimization strategy, and incorporates a local search to escape local optima, which are common in high-dimensional multimodal landscapes like GNBG f6.  The lower-ranked algorithm uses simpler uniform crossover and mutation operators, which can struggle with complex functions.  (second best) `AdaptiveHybridEvolutionaryAlgorithm` vs (second worst) `AdaptiveGaussianSamplingEA` (second version): The second-best algorithm combines Gaussian sampling with differential evolution and local search, providing a more robust exploration and exploitation balance. The second-worst algorithm relies on simpler adaptive Gaussian sampling and tournament selection, which might be less effective in escaping local optima. Comparing (1st) vs (2nd), we see that the top algorithm uses a more robust adaptive sampling strategy (prioritizing regions around the known optimum) than the second best, which utilizes pure Gaussian sampling around the known optimum. (3rd) `AdaptiveGaussianSamplingEA` (first version) vs (4th) `AdaptiveGaussianSamplingEA` (second version): The third-ranked algorithm uses a more direct approach using a simple Gaussian mutation with a decreasing sigma value and a tournament selection mechanism. The fourth one uses sophisticated crossover and adaptive Gaussian mutation. While these added complexities may be beneficial in some cases, it is clear that the simpler approach of rank 3 performed better in this instance. Comparing (second worst) vs (worst), we see that both algorithms use adaptive sampling. However, the second-worst algorithm uses more advanced operators such as Gaussian crossover and adaptive mutation, but lacks sophisticated selection or exploration techniques. The last one is quite elementary, using uniform crossover and mutation. Overall: The best-performing algorithms leverage a combination of adaptive sampling, powerful optimization strategies (differential evolution), and local search to effectively handle the challenges posed by the GNBG f6 function's high dimensionality and multimodality.  Simpler adaptive sampling with basic evolutionary operators is less effective.
+
+
+**Experience:**
+
+Combining adaptive sampling with advanced evolutionary operators like differential evolution and incorporating local search significantly improves performance.  Sophistication is not always better; simplicity can outperform complex methods, so careful consideration of operator choices is vital.  Adaptive strategies for mutation strength and population diversity are key.
+
+2025-06-20 20:49:37 INFO Generating offspring via Crossover...
+2025-06-20 20:49:48 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:49:57 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.2013
+2025-06-20 20:49:57 INFO FeHistory: [-184.14808157 -184.1583777  -184.16221733 ... -185.77588652 -185.77588651
+ -185.77588649]
+2025-06-20 20:49:57 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:49:57 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithLocalSearch
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveDifferentialEvolutionWithLocalSearch:
+    """
+    Combines adaptive sampling, differential evolution, and local search for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                      51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                      -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                      67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                      -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                       38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+
+    def initialize_population(self, num_samples):
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_samples, self.dim))
+        num_near_optimum = int(0.3 * num_samples)  # Increased percentage near optimum
+        noise = np.random.normal(scale=5, size=(num_near_optimum, self.dim))  # Reduced noise scale
+        population[:num_near_optimum, :] = self.known_optimum + noise
+        population[:num_near_optimum, :] = np.clip(population[:num_near_optimum, :], self.lower_bounds, self.upper_bounds)
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search (L-BFGS-B)
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:49:57 INFO Unimodal AOCC mean: 0.2013
+2025-06-20 20:49:57 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:49:57 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:49:57 INFO AOCC mean: 0.2013
+2025-06-20 20:50:05 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:50:14 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1831
+2025-06-20 20:50:14 INFO FeHistory: [-183.43419245 -183.35318765 -183.38113147 ... -183.75062582 -183.77588763
+ -183.81397022]
+2025-06-20 20:50:14 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:50:14 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridDE_with_GaussianInitialization
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveHybridDE_with_GaussianInitialization:
+    """
+    Combines adaptive Gaussian initialization with Differential Evolution (DE) and local search.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # DE scaling factor
+        self.CR = 0.9  # DE crossover rate
+        self.sigma_init = 50.0  # Initial std for Gaussian sampling
+        self.sigma_decay = 0.9  # Decay rate for sigma
+
+    def initialize_population(self):
+        # Adaptive Gaussian initialization around the known optimum (if available)
+        # Otherwise fall back to uniform random
+        if hasattr(self, 'known_optimum'):
+            population = np.random.normal(loc=self.known_optimum, scale=self.sigma_init, size=(self.population_size, self.dim))
+        else:
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        return np.clip(population, self.lower_bounds, self.upper_bounds)
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population()
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    population[i] = trial
+                    fitness[i] = trial_fitness[0]
+
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search (periodically)
+            if self.eval_count % (self.population_size * 2) == 0: #Local search every 2 generations
+                result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+                if result.fun < best_fitness:
+                    best_fitness = result.fun
+                    best_solution = result.x
+                    self.eval_count += result.nfev
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            self.sigma_init *= self.sigma_decay #Adapt Gaussian sampling for next generation
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:50:14 INFO Unimodal AOCC mean: 0.1831
+2025-06-20 20:50:14 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:50:14 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:50:14 INFO AOCC mean: 0.1831
+2025-06-20 20:50:14 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f6 ---
+  Dimension: 30
+  MaxEvals: 500000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+  Component Sigma: [-186.8640532]
+  Component H: [1.72413876e+05 6.20689693e+05 6.89656103e+04 3.79310407e+05
+ 8.96551734e+05 9.65517245e+05 3.44827652e+05 2.41379386e+05
+ 5.17241428e+05 2.75862141e+05 1.00000000e+06 7.24137959e+05
+ 9.31034490e+05 7.93103469e+05 3.44828552e+04 6.89655203e+05
+ 7.58620714e+05 1.37931121e+05 5.86206938e+05 4.13793162e+05
+ 8.62068979e+05 2.06896631e+05 8.27586224e+05 4.48275917e+05
+ 1.00000000e-01 3.10344897e+05 5.51724183e+05 1.03448366e+05
+ 6.55172448e+05 4.82758672e+05]
+  Omega: [0 0 0 0]
+  RotationMatrix Shape: (30, 30)
+  Optimum Position: [-55.83149316 -10.1695254   62.53810597 -54.43686238 -61.01503474
+  51.55313581 -70.70829759 -42.84063087  15.1929463   33.83339181
+ -10.72712305  -3.21267921 -66.09134414  17.60599505 -35.14876741
+  67.02658538 -41.88510129  40.10466429  32.82319833 -60.3548864
+ -46.60361323 -48.45267739  45.49286494   8.18419791   1.27763621
+  38.81218327  60.39807328 -68.79269962 -19.78842639 -25.31608341]
+----------------------------------------
+
+
+### Better code
+AdaptiveHybridEvolutionaryAlgorithm
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveHybridEvolutionaryAlgorithm:
+    """
+    Combines adaptive Gaussian sampling with differential evolution and local search for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.sigma = 20.0  # Initial standard deviation for Gaussian sampling
+        self.sigma_decay = 0.95  # Decay rate for sigma
+
+        self.known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                      51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                      -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                      67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                      -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                       38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+
+    def initialize_population(self, num_samples):
+        population = np.random.normal(loc=self.known_optimum, scale=self.sigma, size=(num_samples, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            self.sigma *= self.sigma_decay #Adapt Gaussian sampling
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+### Worse code
+AdaptiveHybridEvolutionaryAlgorithm
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveHybridEvolutionaryAlgorithm:
+    """
+    Combines adaptive Gaussian sampling with differential evolution and local search for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.sigma = 20.0  # Initial standard deviation for Gaussian sampling
+        self.sigma_decay = 0.95  # Decay rate for sigma
+
+        self.known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                      51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                      -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                      67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                      -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                       38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+
+    def initialize_population(self, num_samples):
+        population = np.random.normal(loc=self.known_optimum, scale=self.sigma, size=(num_samples, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds)
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            self.sigma *= self.sigma_decay #Adapt Gaussian sampling
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+### Analyze & experience
+- Comparing (best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (worst) `AdaptiveSamplingEvolutionaryAlgorithm`, we see that the higher-ranked algorithm uses differential evolution, a more sophisticated optimization strategy, and incorporates a local search to escape local optima, which are common in high-dimensional multimodal landscapes like GNBG f6.  The lower-ranked algorithm uses simpler uniform crossover and mutation operators, which can struggle with complex functions.  (second best) `AdaptiveHybridEvolutionaryAlgorithm` vs (second worst) `AdaptiveGaussianSamplingEA` (second version): The second-best algorithm combines Gaussian sampling with differential evolution and local search, providing a more robust exploration and exploitation balance. The second-worst algorithm relies on simpler adaptive Gaussian sampling and tournament selection, which might be less effective in escaping local optima. Comparing (1st) vs (2nd), we see that the top algorithm uses a more robust adaptive sampling strategy (prioritizing regions around the known optimum) than the second best, which utilizes pure Gaussian sampling around the known optimum. (3rd) `AdaptiveGaussianSamplingEA` (first version) vs (4th) `AdaptiveGaussianSamplingEA` (second version): The third-ranked algorithm uses a more direct approach using a simple Gaussian mutation with a decreasing sigma value and a tournament selection mechanism. The fourth one uses sophisticated crossover and adaptive Gaussian mutation. While these added complexities may be beneficial in some cases, it is clear that the simpler approach of rank 3 performed better in this instance. Comparing (second worst) vs (worst), we see that both algorithms use adaptive sampling. However, the second-worst algorithm uses more advanced operators such as Gaussian crossover and adaptive mutation, but lacks sophisticated selection or exploration techniques. The last one is quite elementary, using uniform crossover and mutation. Overall: The best-performing algorithms leverage a combination of adaptive sampling, powerful optimization strategies (differential evolution), and local search to effectively handle the challenges posed by the GNBG f6 function's high dimensionality and multimodality.  Simpler adaptive sampling with basic evolutionary operators is less effective.
+- Combining adaptive sampling with advanced evolutionary operators like differential evolution and incorporating local search significantly improves performance.  Sophistication is not always better; simplicity can outperform complex methods, so careful consideration of operator choices is vital.  Adaptive strategies for mutation strength and population diversity are key.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:50:14 INFO Generation 4, best so far: 0.2013457736865734
+2025-06-20 20:50:14 INFO --- Performing Long-Term Reflection at Generation 4 ---
+2025-06-20 20:50:18 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveDifferentialEvolutionWithLocalSearch` vs (worst) `AdaptiveGaussianSamplingEA`, we see that incorporating differential evolution and local search significantly improves performance compared to a simpler Gaussian sampling approach.  The best algorithm also strategically initializes a portion of its population near the known optimum, providing a more focused initial exploration.  (second best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (second worst) `AdaptiveHybridDE_with_GaussianInitialization`, shows that while both utilize adaptive sampling and DE, the former's more refined adaptive sampling (20% near optimum vs a less precise Gaussian) and consistent local search application lead to better results. Comparing (1st) vs (2nd), we see that the addition of local search in the top-ranked algorithm provides a substantial advantage over solely relying on DE. (3rd) `AdaptiveHybridEvolutionaryAlgorithm` vs (4th) `AdaptiveHybridDE_with_GaussianInitialization`, both use DE and local search, but the difference lies in their initialization strategies. Gaussian initialization centered around the known optimum (3rd) outperforms a decaying sigma Gaussian (4th). Comparing (second worst) `AdaptiveHybridDE_with_GaussianInitialization` vs (worst) `AdaptiveGaussianSamplingEA`, we observe that the integration of DE and local search in the second worst performing algorithm gives a better result than using only Gaussian sampling with adaptive sigma.  Overall:  The combination of DE, local search, and smart initialization (with some proportion near the known optimum) consistently yields superior performance.  Pure evolutionary strategies without these enhancements are significantly less effective.
+
+
+**Experience:**
+
+Effective population initialization for high-dimensional problems requires a blend of exploration and exploitation.  Combining diverse sampling methods with powerful optimization techniques like DE and local search is crucial.  Adaptive strategies, adjusting parameters based on the search progress, are key to consistently good performance.
+
+2025-06-20 20:50:18 INFO Generating offspring via Crossover...
+2025-06-20 20:50:27 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:50:27 ERROR Can not run the algorithm
+2025-06-20 20:50:27 INFO Run function 6 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-20 20:50:27 INFO FeHistory: []
+2025-06-20 20:50:27 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:50:27 INFO Unimodal AOCC mean: 0.0000
+2025-06-20 20:50:27 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:50:27 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:50:27 INFO AOCC mean: 0.0000
+2025-06-20 20:50:36 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:50:45 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.2061
+2025-06-20 20:50:45 INFO FeHistory: [-183.32502481 -183.31191886 -183.36252554 ... -183.53148345 -183.59166705
+ -183.50809627]
+2025-06-20 20:50:45 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:50:45 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithEnhancedInitialization
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveDifferentialEvolutionWithEnhancedInitialization:
+    """
+    Combines Differential Evolution with enhanced initialization near known optima and local search for multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], known_optimum=None):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.known_optimum = known_optimum  # Allow for None if no known optimum
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.local_search_freq = 5 # Perform local search every 5 generations
+
+
+    def initialize_population(self, num_samples):
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_samples, self.dim))
+        
+        if self.known_optimum is not None:
+            num_near_optimum = int(0.3 * num_samples) # 30% near the optimum
+            noise_scale = 20 # Adjust noise scale as needed. Experiment with this!
+            noise = np.random.normal(scale=noise_scale, size=(num_near_optimum, self.dim))
+            population[:num_near_optimum, :] = self.known_optimum + noise
+            population[:num_near_optimum, :] = np.clip(population[:num_near_optimum, :], self.lower_bounds, self.upper_bounds)
+
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        generation = 0
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            # Local Search
+            if generation % self.local_search_freq == 0:
+                result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+                if result.fun < best_fitness:
+                    best_fitness = result.fun
+                    best_solution = result.x
+                    self.eval_count += result.nfev
+
+                    if best_fitness < self.best_fitness_overall:
+                        self.best_fitness_overall = best_fitness
+                        self.best_solution_overall = best_solution
+
+            generation +=1
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:50:45 INFO Unimodal AOCC mean: 0.2061
+2025-06-20 20:50:45 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:50:45 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:50:45 INFO AOCC mean: 0.2061
+2025-06-20 20:50:45 INFO Crossover Prompt: Your objective is to design a novel and sophisticated population initialization function in Python.
+
+This function is for an Evolutionary Algorithm that will solve the GNBG benchmark function 20. The key challenge is creating a good 
+starting population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]). A simple uniform random
+initialization is often ineffective.
+
+Following is the details about the function:
+
+--- GNBG Problem Parameters for f6 ---
+  Dimension: 30
+  MaxEvals: 500000
+  AcceptanceThreshold: 1e-08
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+  Component Sigma: [-186.8640532]
+  Component H: [1.72413876e+05 6.20689693e+05 6.89656103e+04 3.79310407e+05
+ 8.96551734e+05 9.65517245e+05 3.44827652e+05 2.41379386e+05
+ 5.17241428e+05 2.75862141e+05 1.00000000e+06 7.24137959e+05
+ 9.31034490e+05 7.93103469e+05 3.44828552e+04 6.89655203e+05
+ 7.58620714e+05 1.37931121e+05 5.86206938e+05 4.13793162e+05
+ 8.62068979e+05 2.06896631e+05 8.27586224e+05 4.48275917e+05
+ 1.00000000e-01 3.10344897e+05 5.51724183e+05 1.03448366e+05
+ 6.55172448e+05 4.82758672e+05]
+  Omega: [0 0 0 0]
+  RotationMatrix Shape: (30, 30)
+  Optimum Position: [-55.83149316 -10.1695254   62.53810597 -54.43686238 -61.01503474
+  51.55313581 -70.70829759 -42.84063087  15.1929463   33.83339181
+ -10.72712305  -3.21267921 -66.09134414  17.60599505 -35.14876741
+  67.02658538 -41.88510129  40.10466429  32.82319833 -60.3548864
+ -46.60361323 -48.45267739  45.49286494   8.18419791   1.27763621
+  38.81218327  60.39807328 -68.79269962 -19.78842639 -25.31608341]
+----------------------------------------
+
+
+### Better code
+AdaptiveSamplingEvolutionaryAlgorithm
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveSamplingEvolutionaryAlgorithm:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.F = 0.8 # Differential Evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+
+    def initialize_population(self, num_samples):
+        # Adaptive sampling: prioritize regions around the known optimum (if available)
+        known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                  51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                  -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                  67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                  -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                   38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_samples, self.dim))
+        # Add samples near the known optimum
+        num_near_optimum = int(0.2 * num_samples) # 20% near the optimum
+        noise = np.random.normal(scale=10, size=(num_near_optimum, self.dim)) # Adjust noise scale as needed
+        population[:num_near_optimum, :] = known_optimum + noise
+        population[:num_near_optimum, :] = np.clip(population[:num_near_optimum, :], self.lower_bounds, self.upper_bounds)
+        return population
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search to escape local optima (optional, can be computationally expensive)
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev  # Add function evaluations from local search
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+### Worse code
+AdaptiveSamplingEvolutionaryAlgorithm
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveSamplingEvolutionaryAlgorithm:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.F = 0.8 # Differential Evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+
+    def initialize_population(self, num_samples):
+        # Adaptive sampling: prioritize regions around the known optimum (if available)
+        known_optimum = np.array([-55.83149316, -10.1695254,  62.53810597, -54.43686238, -61.01503474,
+                                  51.55313581, -70.70829759, -42.84063087,  15.1929463,  33.83339181,
+                                  -10.72712305, -3.21267921, -66.09134414,  17.60599505, -35.14876741,
+                                  67.02658538, -41.88510129,  40.10466429,  32.82319833, -60.3548864,
+                                  -46.60361323, -48.45267739,  45.49286494,   8.18419791,   1.27763621,
+                                   38.81218327,  60.39807328, -68.79269962, -19.78842639, -25.31608341])
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_samples, self.dim))
+        # Add samples near the known optimum
+        num_near_optimum = int(0.2 * num_samples) # 20% near the optimum
+        noise = np.random.normal(scale=10, size=(num_near_optimum, self.dim)) # Adjust noise scale as needed
+        population[:num_near_optimum, :] = known_optimum + noise
+        population[:num_near_optimum, :] = np.clip(population[:num_near_optimum, :], self.lower_bounds, self.upper_bounds)
+        return population
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            # Local Search to escape local optima (optional, can be computationally expensive)
+            result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if result.fun < best_fitness:
+                best_fitness = result.fun
+                best_solution = result.x
+                self.eval_count += result.nfev  # Add function evaluations from local search
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+### Analyze & experience
+- Comparing (best) `AdaptiveDifferentialEvolutionWithLocalSearch` vs (worst) `AdaptiveGaussianSamplingEA`, we see that incorporating differential evolution and local search significantly improves performance compared to a simpler Gaussian sampling approach.  The best algorithm also strategically initializes a portion of its population near the known optimum, providing a more focused initial exploration.  (second best) `AdaptiveSamplingEvolutionaryAlgorithm` vs (second worst) `AdaptiveHybridDE_with_GaussianInitialization`, shows that while both utilize adaptive sampling and DE, the former's more refined adaptive sampling (20% near optimum vs a less precise Gaussian) and consistent local search application lead to better results. Comparing (1st) vs (2nd), we see that the addition of local search in the top-ranked algorithm provides a substantial advantage over solely relying on DE. (3rd) `AdaptiveHybridEvolutionaryAlgorithm` vs (4th) `AdaptiveHybridDE_with_GaussianInitialization`, both use DE and local search, but the difference lies in their initialization strategies. Gaussian initialization centered around the known optimum (3rd) outperforms a decaying sigma Gaussian (4th). Comparing (second worst) `AdaptiveHybridDE_with_GaussianInitialization` vs (worst) `AdaptiveGaussianSamplingEA`, we observe that the integration of DE and local search in the second worst performing algorithm gives a better result than using only Gaussian sampling with adaptive sigma.  Overall:  The combination of DE, local search, and smart initialization (with some proportion near the known optimum) consistently yields superior performance.  Pure evolutionary strategies without these enhancements are significantly less effective.
+- Effective population initialization for high-dimensional problems requires a blend of exploration and exploitation.  Combining diverse sampling methods with powerful optimization techniques like DE and local search is crucial.  Adaptive strategies, adjusting parameters based on the search progress, are key to consistently good performance.
+
+Your task is to write an improved function by COMBINING elements of two above heuristics base Analyze & experience.
+Output the code within a Python code block: ```python ... ```, has comment and docstring (<50 words) to description key idea of heuristics design.
+
+I'm going to tip $999K for a better heuristics! Let's think step by step.
+2025-06-20 20:50:45 INFO Generation 5, best so far: 0.2061342443921457
+2025-06-20 20:50:45 INFO --- Performing Long-Term Reflection at Generation 5 ---
+2025-06-20 20:50:49 INFO Full response text: **Analysis:**
+
+Comparing (best) `AdaptiveDifferentialEvolutionWithEnhancedInitialization` vs (worst) `AdaptiveHybridDE_with_GaussianInitialization`, we see that the best utilizes a more sophisticated initialization strategy by combining random sampling with a focused initialization near the known optimum, while the worst relies solely on Gaussian initialization which might be less effective in high-dimensional spaces. The best also includes a local search more frequently, improving convergence.  (second best) `AdaptiveDifferentialEvolutionWithLocalSearch` vs (second worst) `AdaptiveHybridEvolutionaryAlgorithm` show similar differences in initialization; the second best uses a combined approach while the second worst uses solely adaptive Gaussian sampling, which can be less robust. Comparing (1st) vs (2nd), we see that the best algorithm adds an adaptive element to the frequency of local search, while the second best performs it in every iteration, potentially leading to unnecessary computational overhead. (3rd) `AdaptiveSamplingEvolutionaryAlgorithm` vs (4th) `AdaptiveHybridEvolutionaryAlgorithm` show that the choice of sampling method matters; adaptive sampling proves better than adaptive Gaussian sampling. Comparing (second worst) vs (worst), we see that the second worst includes adaptive parameters in its Gaussian sampling, while the worst uses a simple Gaussian. Overall:  The best performing algorithms use a combination of global search (DE) with local search, and a more effective and diverse population initialization strategy that goes beyond just sampling around the known optimum.
+
+
+**Experience:**
+
+Developing effective heuristics involves carefully balancing exploration and exploitation. Combining different sampling techniques and adaptively adjusting parameters based on search progress are crucial for high-dimensional optimization problems.  Prioritizing diverse initial populations improves robustness and reduces the risk of getting trapped in local optima.
+
+2025-06-20 20:50:49 INFO Generating offspring via Crossover...
+2025-06-20 20:50:58 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 20:51:07 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1868
+2025-06-20 20:51:07 INFO FeHistory: [-183.36732203 -183.40287368 -183.41209143 ... -184.8103073  -184.8103073
+ -184.96773017]
+2025-06-20 20:51:07 INFO Expected Optimum FE: -186.86405320391498
+2025-06-20 20:51:07 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithHybridInitialization
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveDifferentialEvolutionWithHybridInitialization:
+    """
+    Combines Differential Evolution with hybrid initialization and adaptive local search for multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], known_optimum=None):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.known_optimum = known_optimum  # Allow for None if no known optimum
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential Evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.local_search_freq = 5 # Perform local search every 5 generations
+        self.adaptive_local_search_rate = 0.1 # Increase local search frequency if progress is slow
+
+    def initialize_population(self, num_samples):
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_samples, self.dim))
+
+        if self.known_optimum is not None:
+            num_near_optimum = int(0.3 * num_samples)  # 30% near the optimum
+            noise_scale = 20  # Adjust noise scale as needed
+            noise = np.random.normal(scale=noise_scale, size=(num_near_optimum, self.dim))
+            population[:num_near_optimum, :] = self.known_optimum + noise
+            population[:num_near_optimum, :] = np.clip(population[:num_near_optimum, :], self.lower_bounds, self.upper_bounds)
+
+        return population
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        population = self.initialize_population(self.population_size)
+        fitness = objective_function(population)
+        self.eval_count += len(fitness)
+        best_solution = population[np.argmin(fitness)]
+        best_fitness = np.min(fitness)
+        self.best_solution_overall = best_solution
+        self.best_fitness_overall = best_fitness
+
+        generation = 0
+        previous_best_fitness = best_fitness
+        while self.eval_count < self.budget:
+            # Differential Evolution
+            new_population = np.zeros_like(population)
+            for i in range(self.population_size):
+                a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+                mutant = population[a] + self.F * (population[b] - population[c])
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))
+                self.eval_count += 1
+                if trial_fitness[0] < fitness[i]:
+                    new_population[i] = trial
+                    fitness[i] = trial_fitness[0]
+                else:
+                    new_population[i] = population[i]
+
+            population = new_population
+            best_solution = population[np.argmin(fitness)]
+            best_fitness = np.min(fitness)
+
+            if best_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = best_fitness
+                self.best_solution_overall = best_solution
+
+            # Adaptive Local Search
+            if generation % self.local_search_freq == 0 or (best_fitness - previous_best_fitness) < (self.adaptive_local_search_rate * abs(previous_best_fitness)):
+                result = minimize(objective_function, best_solution, method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+                if result.fun < best_fitness:
+                    best_fitness = result.fun
+                    best_solution = result.x
+                    self.eval_count += result.nfev
+                    if best_fitness < self.best_fitness_overall:
+                        self.best_fitness_overall = best_fitness
+                        self.best_solution_overall = best_solution
+            previous_best_fitness = best_fitness
+            generation += 1
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+2025-06-20 20:51:07 INFO Unimodal AOCC mean: 0.1868
+2025-06-20 20:51:07 INFO Multimodal (single component) AOCC mean: nan
+2025-06-20 20:51:07 INFO Multimodal (multiple components) AOCC mean: nan
+2025-06-20 20:51:07 INFO AOCC mean: 0.1868

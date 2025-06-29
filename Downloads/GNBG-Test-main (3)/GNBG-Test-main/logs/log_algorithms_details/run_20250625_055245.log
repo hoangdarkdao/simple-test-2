@@ -1,0 +1,1036 @@
+2025-06-25 05:52:46 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 05:52:46 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 05:53:30 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.6978
+2025-06-25 05:53:30 INFO FeHistory: [ 86439.96034119 201818.03166524 143425.13602624 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-25 05:53:30 INFO Expected Optimum FE: -5000
+2025-06-25 05:53:30 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-25 05:53:30 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 05:53:30 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:53:30 INFO FeHistory: [149220.78890662 140303.77350434  95938.24299284 ...   -598.11418953
+   1150.94081281    954.10439132]
+2025-06-25 05:53:30 INFO Expected Optimum FE: -5000
+2025-06-25 05:53:30 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 05:54:10 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:54:10 INFO FeHistory: [175173.19406449 153984.14147966 101176.06983312 ...  -4419.9
+  -4419.9         -4419.9       ]
+2025-06-25 05:54:10 INFO Expected Optimum FE: -5000
+2025-06-25 05:54:10 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 05:54:12 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.7577
+2025-06-25 05:54:12 INFO FeHistory: [173848.0800585  130788.36050572 154091.36004993 ...  52516.35428122
+  21198.75170526  41974.53056842]
+2025-06-25 05:54:12 INFO Expected Optimum FE: -5000
+2025-06-25 05:54:12 INFO Good algorithm:
+Algorithm Name: AdaptivePopulationDE
+import numpy as np
+import random
+# f18 aocc 0.8
+# f20 aocc 0.5
+# not so good again, get stuck in local optima
+class AdaptivePopulationDE: 
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = 10 * self.dim
+        self.min_population_size = 5 * self.dim
+        self.max_population_size = 20 * self.dim
+        self.population_adaptation_rate = 0.1
+
+        self.F = 0.5  # Mutation factor
+        self.Cr = 0.7 # Crossover rate
+
+        self.stagnation_counter = 0
+        self.stagnation_threshold = 5000
+
+        self.archive = []
+        self.archive_size = 100
+
+        self.population = None
+        self.fitness = None
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.stagnation_counter = 0
+
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        self.fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(self.fitness)
+        self.best_solution_overall = self.population[best_index]
+        self.best_fitness_overall = self.fitness[best_index]
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(objective_function)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            self.update_archive(offspring, offspring_fitness)
+
+            for i in range(self.population_size):
+                if offspring_fitness[i] < self.fitness[i]:
+                    self.population[i] = offspring[i]
+                    self.fitness[i] = offspring_fitness[i]
+
+            best_index = np.argmin(self.fitness)
+            if self.fitness[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = self.fitness[best_index]
+                self.stagnation_counter = 0
+            else:
+                self.stagnation_counter += len(offspring)
+
+            self.adjust_population_size(objective_function)
+
+            if self.stagnation_counter > self.stagnation_threshold:
+                self.restart_population(objective_function)
+                self.stagnation_counter = 0
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'population_size': self.population_size
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, objective_function):
+        offspring = np.zeros((self.population_size, self.dim))
+
+        for i in range(self.population_size):
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            if len(indices) < 2:
+                continue  # Skip if not enough individuals
+
+            a, b = random.sample(indices, 2)
+
+            if self.archive and random.random() < 0.5:
+                pbest = self.archive[random.randint(0, len(self.archive) - 1)][0]
+            else:
+                pbest = self.population[np.argmin(self.fitness)]
+
+            mutant = self.population[i] + self.F * (pbest - self.population[i] + self.population[a] - self.population[b])
+
+            for j in range(self.dim):
+                if random.random() > self.Cr:
+                    mutant[j] = self.population[i][j]
+
+            offspring[i] = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1] or len(self.archive) < self.archive_size * 0.8:
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+
+    def adjust_population_size(self, objective_function):
+        if random.random() < self.population_adaptation_rate:
+            if self.stagnation_counter > self.stagnation_threshold / 2:
+                new_size = min(int(self.population_size * 1.1), self.max_population_size)
+            else:
+                new_size = max(int(self.population_size * 0.9), self.min_population_size)
+
+            new_size = int(new_size)
+            if new_size > self.population_size:
+                additional = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(new_size - self.population_size, self.dim))
+                additional_fitness = objective_function(additional)
+                self.population = np.vstack((self.population, additional))
+                self.fitness = np.concatenate((self.fitness, additional_fitness))
+                self.eval_count += len(additional)
+            elif new_size < self.population_size:
+                best_indices = np.argsort(self.fitness)[:new_size]
+                self.population = self.population[best_indices]
+                self.fitness = self.fitness[best_indices]
+
+            self.population_size = new_size
+
+    def restart_population(self, objective_function):
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        self.fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+        best_index = np.argmin(self.fitness)
+        if self.fitness[best_index] < self.best_fitness_overall:
+            self.best_solution_overall = self.population[best_index]
+            self.best_fitness_overall = self.fitness[best_index]
+2025-06-25 05:54:12 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 05:54:49 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:54:49 INFO FeHistory: [168050.02173164 151183.50130255 138746.78228063 ...  -4398.13485531
+  -4398.13485531  -4398.13485531]
+2025-06-25 05:54:49 INFO Expected Optimum FE: -5000
+2025-06-25 05:54:49 INFO Unimodal AOCC mean: nan
+2025-06-25 05:54:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 05:54:49 INFO Multimodal (multiple components) AOCC mean: 0.2326
+2025-06-25 05:54:49 INFO AOCC mean: 0.2326
+2025-06-25 05:54:49 INFO Weighed AOCC mean: nan
+2025-06-25 05:54:49 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 05:54:53 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:54:53 INFO FeHistory: [207348.97449671 136701.10819521 195721.5474685  ...  82804.33282212
+  65490.67981028  37000.9233112 ]
+2025-06-25 05:54:53 INFO Expected Optimum FE: -5000
+2025-06-25 05:54:53 INFO Unimodal AOCC mean: nan
+2025-06-25 05:54:53 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 05:54:53 INFO Multimodal (multiple components) AOCC mean: 0.2526
+2025-06-25 05:54:53 INFO AOCC mean: 0.2526
+2025-06-25 05:54:53 INFO Weighed AOCC mean: nan
+2025-06-25 05:54:53 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 05:55:34 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:55:34 INFO FeHistory: [145162.90927674 157142.3852032   96303.58680147 ...  -4419.9
+  -4419.9         -4419.9       ]
+2025-06-25 05:55:34 INFO Expected Optimum FE: -5000
+2025-06-25 05:55:34 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 05:56:13 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 05:56:13 INFO FeHistory: [114542.12905322 125820.73676537 142762.24785439 ...  -4317.89999982
+  -4317.89999974  -4317.89999981]
+2025-06-25 05:56:13 INFO Expected Optimum FE: -5000
+2025-06-25 05:56:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:21:22 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:21:22 INFO FeHistory: [199026.7155788  123085.21015351 154962.20019058 ...  -4399.89429924
+  -4399.89440459  -4399.89663061]
+2025-06-25 06:21:22 INFO Expected Optimum FE: -5000
+2025-06-25 06:21:22 INFO Unimodal AOCC mean: nan
+2025-06-25 06:21:22 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:21:22 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:21:22 INFO AOCC mean: 0.0000
+2025-06-25 06:21:22 INFO Weighed AOCC mean: nan
+2025-06-25 06:21:33 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:21:33 INFO FeHistory: [118685.91398162 244703.81869377 175203.47589293 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-25 06:21:33 INFO Expected Optimum FE: -5000
+2025-06-25 06:21:33 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:23:45 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:23:45 INFO FeHistory: [152274.66017442 219507.42991684 221092.52999211 ...  -4419.9
+  -4419.9         -4419.9       ]
+2025-06-25 06:23:45 INFO Expected Optimum FE: -5000
+2025-06-25 06:23:45 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:41:35 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:41:35 INFO FeHistory: [183151.57502121 303470.50607948 249923.23448891 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-25 06:41:35 INFO Expected Optimum FE: -5000
+2025-06-25 06:41:35 INFO Unimodal AOCC mean: nan
+2025-06-25 06:41:35 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:41:35 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:41:35 INFO AOCC mean: 0.0000
+2025-06-25 06:41:35 INFO Weighed AOCC mean: nan
+2025-06-25 06:41:35 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:41:46 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:41:59 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:42:10 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:42:20 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:42:28 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 06:42:38 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:43:19 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:43:19 INFO FeHistory: [128864.59179361 108296.47427921 120085.96605003 ...  -1747.39895043
+  -1747.33464811  -1747.39895037]
+2025-06-25 06:43:19 INFO Expected Optimum FE: -5000
+2025-06-25 06:43:19 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:43:59 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:43:59 INFO FeHistory: [151357.46450388 119903.28920291 207926.48176792 ...  15579.33249364
+  15579.3329555   31142.23271185]
+2025-06-25 06:43:59 INFO Expected Optimum FE: -5000
+2025-06-25 06:43:59 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:44:45 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:44:45 INFO FeHistory: [199386.81285118 177709.20019986 169861.51950393 ...  98360.0734054
+ 160997.45169335 117739.72454457]
+2025-06-25 06:44:45 INFO Expected Optimum FE: -5000
+2025-06-25 06:44:45 INFO Unimodal AOCC mean: nan
+2025-06-25 06:44:45 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:44:45 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:44:45 INFO AOCC mean: 0.0000
+2025-06-25 06:44:45 INFO Weighed AOCC mean: nan
+2025-06-25 06:44:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:45:34 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:45:34 INFO FeHistory: [138808.78152648 131669.79201992 139705.58667101 ...   6386.45648391
+   6386.10735155   6391.12971887]
+2025-06-25 06:45:34 INFO Expected Optimum FE: -5000
+2025-06-25 06:45:34 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:46:22 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:46:22 INFO FeHistory: [ 90432.30858076 124041.88896568 188620.32058586 ...  38579.37813444
+  38578.56524846  38579.5910445 ]
+2025-06-25 06:46:22 INFO Expected Optimum FE: -5000
+2025-06-25 06:46:22 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:47:08 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:47:08 INFO FeHistory: [200940.94511228 185680.20345163 178851.72959911 ...  15668.0210208
+  15661.35819934  15665.69559862]
+2025-06-25 06:47:08 INFO Expected Optimum FE: -5000
+2025-06-25 06:47:08 INFO Unimodal AOCC mean: nan
+2025-06-25 06:47:08 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:47:08 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:47:08 INFO AOCC mean: 0.0000
+2025-06-25 06:47:08 INFO Weighed AOCC mean: nan
+2025-06-25 06:47:08 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:48:13 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:48:13 INFO FeHistory: [183333.2800343  107880.41074875 188034.19065128 ... 115349.84985206
+ 179161.04469333 162371.36339379]
+2025-06-25 06:48:13 INFO Expected Optimum FE: -5000
+2025-06-25 06:48:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:49:17 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:49:17 INFO FeHistory: [146215.07156787  93750.12037328 178958.66009872 ... 159187.04831799
+ 285670.12247062 160411.77261212]
+2025-06-25 06:49:17 INFO Expected Optimum FE: -5000
+2025-06-25 06:49:17 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:50:24 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:50:24 INFO FeHistory: [208337.62066998 171223.21258274 100397.61838422 ... 146583.21960126
+ 174838.53228735 225536.8358588 ]
+2025-06-25 06:50:24 INFO Expected Optimum FE: -5000
+2025-06-25 06:50:24 INFO Unimodal AOCC mean: nan
+2025-06-25 06:50:24 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:50:24 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:50:24 INFO AOCC mean: 0.0000
+2025-06-25 06:50:24 INFO Weighed AOCC mean: nan
+2025-06-25 06:50:24 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:50:26 INFO Run function 16 complete. FEHistory len: 5620, AOCC: 0.0000
+2025-06-25 06:50:26 INFO FeHistory: [147815.14737912 147404.50307055  99302.08634989 ...  43987.80278929
+  53553.97323681 101408.13294329]
+2025-06-25 06:50:26 INFO Expected Optimum FE: -5000
+2025-06-25 06:50:26 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:50:30 INFO Run function 18 complete. FEHistory len: 12320, AOCC: 0.0000
+2025-06-25 06:50:30 INFO FeHistory: [153102.68261766 100672.38211288  91874.52677251 ...  80966.93381169
+  14577.4415345   88787.69685774]
+2025-06-25 06:50:30 INFO Expected Optimum FE: -5000
+2025-06-25 06:50:30 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:50:37 INFO Run function 19 complete. FEHistory len: 22420, AOCC: 0.0000
+2025-06-25 06:50:37 INFO FeHistory: [193938.49944555  89432.409757   177340.72786218 ...  40430.2291281
+  62015.2191811   60318.56683944]
+2025-06-25 06:50:37 INFO Expected Optimum FE: -5000
+2025-06-25 06:50:37 INFO Unimodal AOCC mean: nan
+2025-06-25 06:50:37 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:50:37 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:50:37 INFO AOCC mean: 0.0000
+2025-06-25 06:50:37 INFO Weighed AOCC mean: nan
+2025-06-25 06:50:37 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:52:11 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:52:11 INFO FeHistory: [170696.71564332 101941.16827061  99723.72246747 ...  -4250.94260827
+   3480.08855284  -4251.02111612]
+2025-06-25 06:52:11 INFO Expected Optimum FE: -5000
+2025-06-25 06:52:12 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:53:41 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:53:41 INFO FeHistory: [137321.70904163 145691.09822518 162973.13107602 ...  25999.39839273
+  38419.55939616  13353.26548151]
+2025-06-25 06:53:41 INFO Expected Optimum FE: -5000
+2025-06-25 06:53:41 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 06:55:09 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:55:09 INFO FeHistory: [124877.87924488 123222.91903284 245231.58850404 ...  16143.35811182
+  94469.34852197  25025.71460244]
+2025-06-25 06:55:09 INFO Expected Optimum FE: -5000
+2025-06-25 06:55:09 INFO Unimodal AOCC mean: nan
+2025-06-25 06:55:09 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 06:55:09 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 06:55:09 INFO AOCC mean: 0.0000
+2025-06-25 06:55:09 INFO Weighed AOCC mean: nan
+2025-06-25 06:56:51 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 06:58:22 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:58:22 INFO FeHistory: [170525.69088268 142427.09718676 131024.91541771 ...  72782.84441151
+ 110108.2911161   89005.32317165]
+2025-06-25 06:58:22 INFO Expected Optimum FE: -5000
+2025-06-25 06:58:22 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 06:59:49 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 06:59:49 INFO FeHistory: [158979.63718587 121122.90617556 161301.82417595 ... 118459.48966644
+ 151133.71839245 118976.24388568]
+2025-06-25 06:59:49 INFO Expected Optimum FE: -5000
+2025-06-25 06:59:49 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:01:18 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:01:18 INFO FeHistory: [119875.154459   274245.22526216 140179.09152946 ...  66687.1515299
+ 145843.87677655 128706.11081094]
+2025-06-25 07:01:18 INFO Expected Optimum FE: -5000
+2025-06-25 07:01:18 INFO Unimodal AOCC mean: nan
+2025-06-25 07:01:18 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:01:18 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:01:18 INFO AOCC mean: 0.0000
+2025-06-25 07:01:18 INFO Weighed AOCC mean: nan
+2025-06-25 07:01:18 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:02:06 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:02:06 INFO FeHistory: [132192.70512242 108910.24331743  91318.52293286 ...  -3332.78372511
+  -3332.78373243  -3332.78373375]
+2025-06-25 07:02:06 INFO Expected Optimum FE: -5000
+2025-06-25 07:02:06 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:02:50 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:02:50 INFO FeHistory: [128542.54696049  92364.69237648 184420.91730264 ...  10816.52602478
+  10816.52602478  10816.52602478]
+2025-06-25 07:02:50 INFO Expected Optimum FE: -5000
+2025-06-25 07:02:50 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:03:34 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:03:34 INFO FeHistory: [137100.52893366 236537.62692414 172076.25258605 ...  25633.76614211
+  25633.76614211  25633.76614211]
+2025-06-25 07:03:34 INFO Expected Optimum FE: -5000
+2025-06-25 07:03:34 INFO Unimodal AOCC mean: nan
+2025-06-25 07:03:34 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:03:34 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:03:34 INFO AOCC mean: 0.0000
+2025-06-25 07:03:34 INFO Weighed AOCC mean: nan
+2025-06-25 07:03:34 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:04:24 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:04:24 INFO FeHistory: [158008.13797896 168767.61542875 162944.46411011 ...  38324.33755726
+  44029.97860646  26043.15286389]
+2025-06-25 07:04:24 INFO Expected Optimum FE: -5000
+2025-06-25 07:04:24 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:05:10 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:05:10 INFO FeHistory: [155255.6411991  244991.10632372 350134.21492791 ...  62401.27615531
+  46647.75537205  47738.93338486]
+2025-06-25 07:05:10 INFO Expected Optimum FE: -5000
+2025-06-25 07:05:10 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:05:58 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:05:58 INFO FeHistory: [194778.01879731 159350.84422635 279662.30073452 ... 132409.16052053
+ 107672.09899766 142845.19376613]
+2025-06-25 07:05:58 INFO Expected Optimum FE: -5000
+2025-06-25 07:05:58 INFO Unimodal AOCC mean: nan
+2025-06-25 07:05:58 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:05:58 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:05:58 INFO AOCC mean: 0.0000
+2025-06-25 07:05:58 INFO Weighed AOCC mean: nan
+2025-06-25 07:05:58 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:06:54 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:06:54 INFO FeHistory: [150221.7072523  147587.88256116 103839.87217888 ...   6186.20951881
+   6117.82694107   9084.38298976]
+2025-06-25 07:06:54 INFO Expected Optimum FE: -5000
+2025-06-25 07:06:54 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:07:45 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:07:45 INFO FeHistory: [165054.47848644 182861.66484553 169743.29611013 ...  88211.03386423
+  75834.86869244  62091.63964386]
+2025-06-25 07:07:45 INFO Expected Optimum FE: -5000
+2025-06-25 07:07:45 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:08:33 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:08:33 INFO FeHistory: [114873.80157457 174610.12961437 101929.53022717 ... 121536.45908476
+  79202.57503659  87404.12288209]
+2025-06-25 07:08:33 INFO Expected Optimum FE: -5000
+2025-06-25 07:08:33 INFO Unimodal AOCC mean: nan
+2025-06-25 07:08:33 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:08:33 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:08:33 INFO AOCC mean: 0.0000
+2025-06-25 07:08:33 INFO Weighed AOCC mean: nan
+2025-06-25 07:12:50 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:13:38 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:13:38 INFO FeHistory: [146553.71534816 136059.85083204 125104.21697145 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-25 07:13:38 INFO Expected Optimum FE: -5000
+2025-06-25 07:13:38 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:14:24 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.2264
+2025-06-25 07:14:24 INFO FeHistory: [190365.11711554 136942.9696782  249512.12029886 ...  -4317.89997728
+  -4317.89997197  -4317.89998113]
+2025-06-25 07:14:24 INFO Expected Optimum FE: -5000
+2025-06-25 07:14:24 INFO Good algorithm:
+Algorithm Name: DispersedIslandDifferentialEvolution
+import numpy as np
+import random
+
+
+# Name: DispersedIslandDifferentialEvolution
+# Description: A multi-island DE algorithm with dispersion-based migration and adaptive mutation to enhance exploration and prevent premature convergence.
+# Code:
+class DispersedIslandDifferentialEvolution:
+    """
+    A multi-island differential evolution algorithm with dispersion-based migration and adaptive mutation.
+    This algorithm maintains multiple independent populations (islands)
+    that evolve in parallel using differential evolution.  Periodically,
+    individuals migrate between islands based on population dispersion
+    to share information and prevent premature convergence to local optima, enhancing exploration
+    of multi-modal landscapes.
+    """
+
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 num_islands: int = 5, population_size: int = 20, crossover_rate: float = 0.7,
+                 mutation_factor: float = 0.5, migration_interval: int = 5000, migration_size: int = 2,
+                 dispersion_threshold: float = 0.01):
+        """
+        Initializes the DispersedIslandDifferentialEvolution algorithm.
+
+        Args:
+            budget: The total function evaluation budget.
+            dim: The dimensionality of the problem.
+            lower_bounds: A list of lower bounds for each dimension.
+            upper_bounds: A list of upper bounds for each dimension.
+            num_islands: The number of independent populations (islands).
+            population_size: The size of each population.
+            crossover_rate: The crossover rate for differential evolution.
+            mutation_factor: The initial mutation factor for differential evolution.
+            migration_interval: The number of function evaluations between migrations.
+            migration_size: The number of individuals to migrate between islands.
+            dispersion_threshold: Threshold for population dispersion to trigger migration.
+        """
+
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_factor = mutation_factor  # Initial mutation factor. Adaptive.
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+        self.dispersion_threshold = dispersion_threshold
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands (populations)
+        self.islands = []
+        self.island_fitnesses = []  # Store fitness values for each island
+        self.island_mutation_factors = [] # adaptive Mutation factors per island
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.islands.append(population)
+            self.island_fitnesses.append(np.full(self.population_size, float('inf')))  # Initialize with infinite fitness
+            self.island_mutation_factors.append(self.mutation_factor) #Initialize Mutation factors
+
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the given objective function using the island-based differential evolution algorithm.
+
+        Args:
+            objective_function: A callable that takes a 2D NumPy array of solutions and returns a 1D NumPy array of fitness values.
+            acceptance_threshold:  Not used in this specific version.
+
+        Returns:
+            A tuple containing:
+            - The best solution found (a 1D NumPy array).
+            - The best fitness value found (a scalar).
+            - A dictionary containing optimization information (function evaluations used, final best fitness).
+        """
+        self.eval_count = 0  # Reset evaluation count for this run
+
+        while self.eval_count < self.budget:
+            for island_index in range(self.num_islands):
+                # Differential Evolution step for each island
+                self.evolve_island(island_index, objective_function)
+
+            # Adaptive Mutation Factor update every migration interval
+            if self.eval_count % self.migration_interval < self.num_islands and self.eval_count > 0 :
+                self.update_mutation_factors()
+                
+            # Migration step (based on dispersion)
+            if self.eval_count % self.migration_interval < self.num_islands and self.eval_count > 0:
+                self.migrate_individuals(objective_function)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def evolve_island(self, island_index: int, objective_function: callable):
+        """
+        Performs one generation of differential evolution on a single island.
+
+        Args:
+            island_index: The index of the island to evolve.
+            objective_function: The callable objective function.
+        """
+        population = self.islands[island_index]
+        fitnesses = self.island_fitnesses[island_index]
+        new_population = np.copy(population)
+        new_fitnesses = np.copy(fitnesses)
+        mutation_factor = self.island_mutation_factors[island_index]  # Access island-specific mutation factor
+        
+
+        for i in range(self.population_size):
+            # Mutation
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+            mutant = population[a] + mutation_factor * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            crossover_mask = np.random.rand(self.dim) < self.crossover_rate
+            trial_vector = np.where(crossover_mask, mutant, population[i])
+
+            # Evaluation
+            trial_vector_reshaped = trial_vector.reshape(1, -1)  # Reshape for the objective function
+            fitness = objective_function(trial_vector_reshaped)[0]
+
+            self.eval_count += 1
+
+            # Selection
+            if fitness < fitnesses[i]:
+                new_population[i] = trial_vector
+                new_fitnesses[i] = fitness
+
+                if fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = fitness
+                    self.best_solution_overall = trial_vector
+
+            if self.eval_count >= self.budget:
+                break
+
+        self.islands[island_index] = new_population
+        self.island_fitnesses[island_index] = new_fitnesses
+        
+
+    def migrate_individuals(self, objective_function: callable):
+        """
+        Migrates individuals between islands based on dispersion to share information and diversify the search.
+        """
+        islands_to_migrate = []
+        for island_index in range(self.num_islands):
+            # Calculate population dispersion for the current island
+            island_population = self.islands[island_index]
+            mean_position = np.mean(island_population, axis=0)
+            distances = np.linalg.norm(island_population - mean_position, axis=1)
+            average_distance = np.mean(distances)
+
+            # If population dispersion is below threshold, trigger migration
+            if average_distance < self.dispersion_threshold:
+                islands_to_migrate.append(island_index)
+
+        # Perform migration for islands that need it
+        for island_index in islands_to_migrate:
+            # Select migrants from the current island
+            sorted_indices = np.argsort(self.island_fitnesses[island_index])
+            migrant_indices = sorted_indices[:self.migration_size]
+            migrants = self.islands[island_index][migrant_indices]
+
+            # Choose a destination island (excluding the current island)
+            possible_destinations = [i for i in range(self.num_islands) if i != island_index]
+            if not possible_destinations:  #Only one island
+                continue
+                
+            destination_island_index = random.choice(possible_destinations)
+            
+            # Replace worst individuals on the destination island with migrants
+            sorted_indices_dest = np.argsort(self.island_fitnesses[destination_island_index])[::-1] # Descending
+            replace_indices = sorted_indices_dest[:self.migration_size]
+            self.islands[destination_island_index][replace_indices] = migrants
+
+
+            # Recalculate fitness for migrants on the destination island. It is more robust.
+            immigrant_solutions = self.islands[destination_island_index][replace_indices]
+            immigrant_solutions_eval = objective_function(immigrant_solutions)
+            self.eval_count += self.migration_size
+            self.island_fitnesses[destination_island_index][replace_indices] = immigrant_solutions_eval
+            
+
+    def update_mutation_factors(self):
+        """
+        Adaptively adjusts the mutation factor for each island based on its performance.
+        If an island is converging too quickly (low diversity), increase mutation factor to enhance exploration.
+        If an island is stagnant (no improvement), reset mutation factor.
+        """
+        for island_index in range(self.num_islands):
+            #Calculate population diversity
+            island_population = self.islands[island_index]
+            mean_position = np.mean(island_population, axis=0)
+            distances = np.linalg.norm(island_population - mean_position, axis=1)
+            average_distance = np.mean(distances)
+            
+            # Increase mutation if low diversity
+            if average_distance < self.dispersion_threshold:
+                self.island_mutation_factors[island_index] *= 1.2  # Increase exploration
+
+            #Stagnation Check (no improvment), hard reset!
+            current_best_fitness = np.min(self.island_fitnesses[island_index])
+            old_best_fitness = getattr(self, f"old_best_fitness_{island_index}", float('inf')) # Store value inside the object
+
+            if current_best_fitness >= old_best_fitness:
+                 self.island_mutation_factors[island_index] = self.mutation_factor #Hard Reset!
+
+            setattr(self, f"old_best_fitness_{island_index}", current_best_fitness)  # Storing as a attribute avoid poluting outside scope
+
+            self.island_mutation_factors[island_index] = min(self.island_mutation_factors[island_index], 1.0) #Clamp value
+2025-06-25 07:14:24 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:15:10 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:15:10 INFO FeHistory: [157476.7366096   87430.92735882 219844.65759732 ...  -3836.78735797
+  -3127.3205328   -3844.30114685]
+2025-06-25 07:15:10 INFO Expected Optimum FE: -5000
+2025-06-25 07:15:10 INFO Unimodal AOCC mean: nan
+2025-06-25 07:15:10 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:15:10 INFO Multimodal (multiple components) AOCC mean: 0.0755
+2025-06-25 07:15:10 INFO AOCC mean: 0.0755
+2025-06-25 07:15:10 INFO Weighed AOCC mean: nan

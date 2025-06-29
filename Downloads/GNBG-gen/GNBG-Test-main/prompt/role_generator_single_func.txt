@@ -1,0 +1,38 @@
+  Your objective is to design a novel and sophisticated population function in Python, solving GNBG benchmark on function 18, particularly:
+
+  The f18 problem is a complex optimization benchmark designed to test the robustness of algorithms. It shares structural similarities with the f16 problem but introduces several key variations to increase difficulty:
+  Component parameters are randomly selected from uniform distributions: the mean values range between 0.2 and 0.5, and the weight parameters range between 5 and 50.
+  Each component has a fixed probability value of 0.5, which creates varying interaction structures and connectivity patterns.
+  The angles within each component are randomly chosen from the full range of negative to positive pi, introducing rotational complexity.
+  These settings result in a highly multimodal landscape characterized by irregular, rugged terrain and noticeable asymmetry both at local and global levels. Although each component is separable, they differ significantly in the shape and structure of their local optima. This diversity in basin morphology makes it particularly challenging for optimization algorithms to avoid getting trapped in local optima and to effectively explore the search space.
+
+  The key challenge is creating a good population for a high-dimensional search space (30D) with wide bounds (typically [-100, 100]).
+  Following is detail about the function: 
+  --- GNBG Problem Parameters for f18 ---
+    Dimension: 30
+    MaxEvals: 1000000
+    AcceptanceThreshold: 1e-08
+    Search Bounds: [-100, 100]
+    Number of Components: 5
+    Known Optimum Value: -5000.000000
+    Lambda (Curvature): [1 1 1 1 1]
+    Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+  0.26098797 0.491006   0.27569772 0.45404864]
+    Component Sigma: [-4470.4 -4399.9 -5000.  -4317.9 -4419.9]
+    Component H: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+  1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+  1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+  1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+  1 1]
+    Omega: [15.79314916  5.8359291  19.28130842 38.54004939 27.21963714  8.15099647
+  49.48772695 35.11548021 32.89800733 26.88552999 31.08853487 16.92138009
+  42.30414048 32.28482577 22.10635277  7.98506755 12.05561276 30.59831467
+  29.79266986 21.65378891]
+    RotationMatrix Shape: (30, 30, 5)
+    Optimum Position: [-79.98170003 -24.71028367 -47.28764004   9.39037255 -29.85213149
+  -73.75123468  73.26232482  53.5401075  -35.12896127 -33.02173626
+  -46.13950144 -56.52342802  31.10402524   2.38225793 -57.71578444
+  -24.35746244  40.15078944  74.37440754  -8.01405864  11.78871787
+    61.75073589  68.7099574   69.21527409  67.68392569 -75.47096192
+    54.72494278   9.76483508 -17.94229695 -70.41316968  34.07823686]
+  ----------------------------------------

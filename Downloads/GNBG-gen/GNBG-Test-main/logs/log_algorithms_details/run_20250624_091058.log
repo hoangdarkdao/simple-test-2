@@ -1,0 +1,44 @@
+2025-06-24 09:10:59 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-24 09:11:06 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 190, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.

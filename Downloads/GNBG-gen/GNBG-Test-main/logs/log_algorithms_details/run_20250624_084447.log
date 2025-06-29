@@ -1,0 +1,171 @@
+2025-06-24 08:44:48 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-24 08:44:48 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-24 08:44:48 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-24 08:44:48 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-24 08:44:59 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1534
+2025-06-24 08:44:59 INFO FeHistory: [-183.41997302 -183.30626394 -183.29919773 ... -183.86922093 -183.79711152
+ -183.77670504]
+2025-06-24 08:44:59 INFO Expected Optimum FE: -186.86405320391498
+2025-06-24 08:44:59 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianDifferentialEvolutionDispersal
+import numpy as np
+import random
+
+# Name: AdaptiveGaussianDifferentialEvolutionDispersal
+# Description: DE with adaptive Gaussian sampling, archive-based diversity, and dispersal mechanism for multimodal problems.
+# Code:
+class AdaptiveGaussianDifferentialEvolutionDispersal:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 population_size_factor: float = 8, archive_size_factor: float = 4, gaussian_sigma_scale: float = 0.1,
+                 dispersal_probability: float = 0.05):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = int(population_size_factor * self.dim)
+        self.archive_size = int(archive_size_factor * self.dim)
+        self.archive = []  # List to store (solution, fitness) tuples
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+        self.fitness = np.full(self.population_size, float('inf'))
+        self.mutation_factor = 0.5
+        self.crossover_rate = 0.7
+        self.gaussian_sigma_scale = gaussian_sigma_scale  # Scales the Gaussian noise
+        self.fitness_history_length = 10
+        self.fitness_history = np.full(self.fitness_history_length, float('inf'))
+        self.dispersal_probability = dispersal_probability  # Probability of dispersal
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+        self.fitness = fitness
+
+        best_index = np.argmin(fitness)
+        self.best_solution_overall = self.population[best_index].copy()
+        self.best_fitness_overall = fitness[best_index]
+        self.fitness_history = np.full(self.fitness_history_length, self.best_fitness_overall)
+
+        while self.eval_count < self.budget:
+            for i in range(self.population_size):
+                if random.random() < self.dispersal_probability:
+                    trial = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim) #Dispersal
+                else:
+                    mutant = self.create_mutant(i)
+                    trial = self.crossover(self.population[i], mutant)
+                trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                self.eval_count += 1
+                self.select(trial, trial_fitness, i)
+                self.update_archive(trial, trial_fitness)
+
+            self.adapt_parameters()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'archive_size': len(self.archive)
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def create_mutant(self, index):
+        """Combines DE mutation with Gaussian sampling."""
+        # Differential Evolution Mutation
+        a, b, c = random.sample(range(self.population_size), 3)
+        while a == index or b == index or c == index:
+            a, b, c = random.sample(range(self.population_size), 3)
+        mutant = self.population[a] + self.mutation_factor * (self.population[b] - self.population[c])
+
+        # Gaussian Sampling around the mutant (landscape aware)
+        sigma = self.gaussian_sigma_scale * (self.upper_bounds - self.lower_bounds)  #Dim-wise sigma
+
+        gaussian_noise = np.random.normal(0, sigma, self.dim)
+        mutant += gaussian_noise
+
+
+        mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+        return mutant
+
+    def crossover(self, individual, mutant):
+        """Binomial Crossover."""
+        trial = individual.copy()
+        for i in range(self.dim):
+            if random.random() < self.crossover_rate or i == random.randint(0, self.dim - 1):
+                trial[i] = mutant[i]
+        return trial
+
+    def select(self, trial, trial_fitness, index):
+        """Selection and Fitness Sharing with Archive."""
+        if trial_fitness < self.fitness[index]:
+            self.fitness[index] = trial_fitness
+            self.population[index] = trial
+            if trial_fitness < self.best_fitness_overall:
+                self.best_fitness_overall = trial_fitness
+                self.best_solution_overall = trial.copy()
+
+    def update_archive(self, solution, fitness):
+        """Maintains a diverse archive."""
+        if len(self.archive) < self.archive_size:
+            self.archive.append((solution, fitness))
+        else:
+            # Replace the worst with some probability
+            worst_index = np.argmax([f for _, f in self.archive])
+            if random.random() < 0.5 or fitness < self.archive[worst_index][1]:
+                self.archive[worst_index] = (solution, fitness)
+
+    def adapt_parameters(self):
+        """Adapts mutation and crossover rates based on recent fitness history."""
+        self.fitness_history = np.roll(self.fitness_history, 1)
+        self.fitness_history[0] = self.best_fitness_overall
+        fitness_change = np.abs(self.fitness_history[0] - self.fitness_history[-1])
+
+        #If little change, increase exploration by boosting mutation and dispersal
+        if fitness_change < 1e-3:
+            self.mutation_factor = min(1.0, self.mutation_factor * 1.1)
+            self.crossover_rate = max(0.1, self.crossover_rate * 0.9) # Also reduce crossover to let bigger jumps occur
+            self.dispersal_probability = min(0.5, self.dispersal_probability * 1.1) #Increase dispersal
+        else:
+            self.mutation_factor = max(0.1, self.mutation_factor * 0.9)  # Reduce to exploit if improving
+            self.crossover_rate = min(0.9, self.crossover_rate * 1.1)
+            self.dispersal_probability = max(0.01, self.dispersal_probability * 0.9)
+2025-06-24 08:44:59 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------

@@ -1,0 +1,637 @@
+2025-06-23 23:08:45 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 23:08:45 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 23:08:45 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 23:08:45 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 23:08:55 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1520
+2025-06-23 23:08:55 INFO FeHistory: [-183.30458024 -183.29960056 -183.32948853 ... -183.63704247 -183.68152999
+ -183.70767476]
+2025-06-23 23:08:55 INFO Expected Optimum FE: -186.86405320391498
+2025-06-23 23:08:55 INFO Good algorithm:
+Algorithm Name: AdaptiveCauchyDEwithDiversityClustering
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveCauchyDEwithDiversityClustering
+# Description: Differential Evolution with adaptive Cauchy mutation and diversity-preserving clustering to escape local optima in multimodal landscapes.
+# Code:
+class AdaptiveCauchyDEwithDiversityClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.gamma = 1.0 #Cauchy scale parameter
+        self.cluster_threshold = 0.1 #Parameter controlling cluster size
+        self.archive = [] #Archive of good solutions
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_best(offspring, offspring_fitness)
+            self._update_archive(offspring, offspring_fitness)
+            self._adaptive_parameter_control()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_differentiation_vectors(i)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            trial = self._crossover(population[i], mutant)
+            trial = self._cauchy_mutation(trial) #Adaptive Cauchy Mutation
+            offspring[i] = np.clip(trial, self.lower_bounds, self.upper_bounds)
+        return offspring
+
+    def _select_differentiation_vectors(self, i):
+        candidates = list(range(self.population_size))
+        candidates.remove(i)
+        a, b, c = np.random.choice(candidates, 3, replace=False)
+        return a,b,c
+    
+    def _crossover(self, x, v):
+      crosspoints = np.random.rand(self.dim) < self.CR
+      return np.where(crosspoints, v, x)
+
+    def _cauchy_mutation(self, solution):
+      mutation = np.random.standard_cauchy(self.dim) * self.gamma
+      return solution + mutation
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fitness)
+        return combined_population[sorted_indices[:self.population_size]], combined_fitness[sorted_indices[:self.population_size]]
+
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+
+    def _update_archive(self, offspring, offspring_fitness):
+        for i, solution in enumerate(offspring):
+            if offspring_fitness[i] < self.best_fitness_overall * 1.1 : # Add solutions within 10% of the best
+                self.archive.append((solution, offspring_fitness[i]))
+        self._cluster_archive()
+
+    def _cluster_archive(self):
+        if len(self.archive) > self.population_size * 2 : # Keep archive size manageable
+             solutions = np.array([s for s,f in self.archive])
+             distances = cdist(solutions, solutions)
+             np.fill_diagonal(distances, np.inf) #ignore self-distances
+             min_distances = np.min(distances, axis=1)
+             indices_to_keep = np.argsort(min_distances)[::-1][:self.population_size*2] #Keep most distant solutions
+
+             self.archive = [self.archive[i] for i in indices_to_keep]
+
+    def _adaptive_parameter_control(self):
+        if self.eval_count % (self.budget // 10) == 0:  # Adjust parameters every 10% of the budget
+            if self.best_fitness_overall < 1e-2: # Problem nearly solved, tighten parameters
+                self.gamma *= 0.9
+                self.F *= 0.9
+                self.CR *= 0.9
+                self.cluster_threshold *= 0.9
+            else: # Problem difficult, expand search
+                self.gamma *= 1.1
+                self.F *= 1.1
+                self.CR *= 1.1
+                self.cluster_threshold *= 1.1
+                
+            self.gamma = max(0.1, min(self.gamma, 5.0)) #Keep parameters within reasonable bounds
+            self.F = max(0.1, min(self.F, 1.0))
+            self.CR = max(0.1, min(self.CR, 1.0))
+            self.cluster_threshold = max(0.01, min(self.cluster_threshold,1.0))
+
+
+2025-06-23 23:08:55 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 23:08:55 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1524
+2025-06-23 23:08:55 INFO FeHistory: [-183.40893109 -183.39695593 -183.29788496 ... -183.80624537 -183.91559318
+ -183.86669441]
+2025-06-23 23:08:55 INFO Expected Optimum FE: -186.86405320391498
+2025-06-23 23:08:55 INFO Good algorithm:
+Algorithm Name: AdaptiveDECauchyWithClustering
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveDECauchyWithClustering
+# Description: Differential Evolution with adaptive Cauchy mutation and clustering for diversity maintenance in multimodal landscapes.
+# Code:
+class AdaptiveDECauchyWithClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential evolution scaling factor
+        self.CR = 0.9  # Crossover rate
+        self.gamma = 1.0 #Initial Cauchy scale parameter. Adaptive later.
+        self.archive_size = 50
+        self.archive = []
+        self.cluster_threshold = 0.1
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness = objective_function(population)
+        self.eval_count += self.population_size
+        
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness = self._selection(population, fitness, offspring, offspring_fitness)
+            self._update_archive(population, fitness)
+            self._adaptive_parameter_control()
+            self._update_best(offspring, offspring_fitness)
+            
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _generate_offspring(self, population, fitness):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_different(population, i)
+            mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  #Bound mutant
+            trial = self._crossover(population[i], mutant)
+            trial = self._cauchy_mutation(trial)  #Cauchy mutation
+            offspring[i] = np.clip(trial, self.lower_bounds, self.upper_bounds) #Bound offspring
+        return offspring
+
+    def _select_three_different(self, population, i):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        mask = np.random.rand(self.dim) < self.CR
+        return np.where(mask, v, x)
+
+    def _cauchy_mutation(self, individual):
+        return individual + np.random.standard_cauchy(self.dim) * self.gamma
+
+    def _selection(self, population, fitness, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_archive(self, population, fitness):
+        combined = np.hstack((population, fitness.reshape(-1,1)))
+        if len(self.archive) < self.archive_size:
+            self.archive.extend(combined)
+        else:
+            distances = cdist(combined[:,:-1], np.array(self.archive)[:,:-1])
+            closest_in_archive = np.min(distances, axis=1)
+            for i in range(len(combined)):
+                if closest_in_archive[i] > self.cluster_threshold:
+                    self.archive.append(combined[i])
+            self.archive = self.archive[:self.archive_size] #Keep at maximum size.
+
+    def _adaptive_parameter_control(self):
+        if len(self.archive) > 0:
+            archive_fitnesses = np.array(self.archive)[:,-1]
+            mean_fitness = np.mean(archive_fitnesses)
+            std_fitness = np.std(archive_fitnesses)
+            self.gamma = min(5.0, max(0.1, 0.5 * std_fitness))
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+2025-06-23 23:08:55 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 23:08:55 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1505
+2025-06-23 23:08:55 INFO FeHistory: [-183.34829546 -183.30001494 -183.38408126 ... -183.17757934 -183.20201146
+ -183.23405169]
+2025-06-23 23:08:55 INFO Expected Optimum FE: -186.86405320391498
+2025-06-23 23:08:55 INFO Good algorithm:
+Algorithm Name: AdaptiveCauchyDEwithClustering
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveCauchyDEwithClustering
+# Description: Differential Evolution with adaptive Cauchy mutation and clustering-based diversity maintenance for multimodal optimization.
+# Code:
+class AdaptiveCauchyDEwithClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.5  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.gamma = 1.0  # Cauchy scale parameter (adaptive)
+        self.cluster_threshold = 0.1 # Adjust as needed
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._select_next_generation(population, fitness_values, offspring, offspring_fitness)
+            self._adapt_gamma(population, fitness_values)
+            self._update_best(offspring, offspring_fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_distinct(i, len(population))
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            trial = self._cauchy_mutation(trial)
+            offspring[i] = np.clip(trial, self.lower_bounds, self.upper_bounds)
+
+        return offspring
+
+    def _select_distinct(self, exclude_index, population_size):
+        indices = np.random.choice(population_size, size=3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(population_size, size=3, replace=False)
+        return indices
+
+    def _crossover(self, x, v):
+        jrand = np.random.randint(0, self.dim)
+        trial = np.where(np.random.rand(self.dim) < self.CR, v, x)
+        trial[jrand] = v[jrand] #Ensure at least one element is from v
+        return trial
+
+
+    def _cauchy_mutation(self, individual):
+        return individual + np.random.standard_cauchy(self.dim) * self.gamma
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        
+        #Clustering-based diversity
+        distances = cdist(next_gen, next_gen)
+        np.fill_diagonal(distances, np.inf) #ignore self-distance
+        
+        
+        min_distances = np.min(distances, axis=1)
+        to_remove = np.where(min_distances < self.cluster_threshold)[0]
+        
+        while len(to_remove)>0 and len(next_gen) > self.population_size // 2: #Remove only if it helps diversity
+            to_remove_idx = to_remove[np.argmin(next_fit[to_remove])]
+            next_gen = np.delete(next_gen, to_remove_idx, 0)
+            next_fit = np.delete(next_fit, to_remove_idx, 0)
+            distances = cdist(next_gen, next_gen)
+            np.fill_diagonal(distances, np.inf)
+            min_distances = np.min(distances, axis=1)
+            to_remove = np.where(min_distances < self.cluster_threshold)[0]
+
+        return next_gen, next_fit
+
+
+    def _adapt_gamma(self, population, fitness_values):
+        # Simple adaptive strategy: reduce gamma if convergence is detected
+        avg_dist = np.mean(cdist(population, population))
+        if avg_dist < 0.5 * (np.max(self.upper_bounds) - np.min(self.lower_bounds)): #Adjust 0.5 as needed
+             self.gamma *= 0.95
+        else:
+            self.gamma *= 1.05 # Increase if not converging
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+2025-06-23 23:08:55 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 23:09:05 INFO Run function 13 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:05 INFO FeHistory: [2842282.14305137 2931963.33366247  952469.99231616 ... 3170801.43783808
+ 1031781.91607755  583425.66745599]
+2025-06-23 23:09:05 INFO Expected Optimum FE: -216.7276963542314
+2025-06-23 23:09:05 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-23 23:09:05 INFO Run function 13 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:05 INFO FeHistory: [2207150.26116831 1947221.99781586 1483010.78719959 ...  694051.00224487
+  519065.24887768 1406186.4826963 ]
+2025-06-23 23:09:05 INFO Expected Optimum FE: -216.7276963542314
+2025-06-23 23:09:05 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-23 23:09:05 INFO Run function 13 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:05 INFO FeHistory: [ 753328.37159108 2353420.35868366 2839860.62177071 ... 2326482.56405185
+ 2778686.02278191 7826563.99195567]
+2025-06-23 23:09:05 INFO Expected Optimum FE: -216.7276963542314
+2025-06-23 23:09:05 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-23 23:09:09 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1701
+2025-06-23 23:09:09 INFO FeHistory: [-183.46598763 -183.31609015 -183.32431485 ... -185.49027699 -185.55313996
+ -185.54295436]
+2025-06-23 23:09:09 INFO Expected Optimum FE: -186.86405320391498
+2025-06-23 23:09:09 INFO Good algorithm:
+Algorithm Name: AdaptiveCauchyDEwithDiversityArchive
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveCauchyDEwithDiversityArchive
+# Description: Differential Evolution with adaptive Cauchy mutation and a diversity archive to escape local optima in multimodal landscapes.
+# Code:
+class AdaptiveCauchyDEwithDiversityArchive:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 50
+        self.archive = []
+        self.F = 0.5  # Differential weight
+        self.CR = 0.9 # Crossover rate
+        self.gamma = 1.0 # Cauchy scale parameter
+        self.gamma_decay = 0.99
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        
+        self._update_best(population, fitness_values)
+        
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+            
+            self._update_best(offspring, offspring_fitness)
+            
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_archive(population, fitness_values)
+            self.gamma *= self.gamma_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_different(i, self.population_size)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            
+            #Cauchy Mutation
+            mutant += np.random.standard_cauchy(self.dim) * self.gamma
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            
+            offspring[i] = self._crossover(population[i], mutant)
+        return offspring
+    
+
+    def _crossover(self, x, v):
+        jrand = np.random.randint(self.dim)
+        y = np.copy(x)
+        for j in range(self.dim):
+            if np.random.rand() < self.CR or j == jrand:
+                y[j] = v[j]
+        return y
+
+    def _select_three_different(self, target_index, pop_size):
+        indices = np.random.choice(pop_size, 3, replace=False)
+        while target_index in indices:
+            indices = np.random.choice(pop_size, 3, replace=False)
+        return indices
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        
+        sorted_indices = np.argsort(combined_fit)
+        
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, population, fitness_values):
+        for i, fitness in enumerate(fitness_values):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = population[i]
+    
+    def _update_archive(self, population, fitness_values):
+        #Simple Archive based on distance
+        new_members = np.hstack((population, fitness_values.reshape(-1,1)))
+        
+        if len(self.archive) < self.archive_size:
+            self.archive.extend(new_members)
+        else:
+            distances = cdist(np.array(self.archive)[:,:-1], population)
+            closest_index = np.argmin(distances, axis=0)
+            
+            for i in range(len(population)):
+                if distances[closest_index[i],i] > np.max(cdist(np.array(self.archive)[:,:-1], np.array(self.archive)[:,:-1])):
+                    self.archive[closest_index[i]] = np.hstack((population[i], fitness_values[i]))
+
+2025-06-23 23:09:09 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 23:09:32 INFO Run function 13 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:32 INFO FeHistory: [1795990.86436819 2215147.36926966 1855485.70671717 ...  691694.49474939
+  730187.47240473 1032298.28016655]
+2025-06-23 23:09:32 INFO Expected Optimum FE: -216.7276963542314
+2025-06-23 23:09:32 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-23 23:09:35 INFO Run function 18 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:35 INFO FeHistory: [127521.26193784 118355.83214719 147739.33402101 ...  18191.74062053
+  45747.08886152  23986.73470135]
+2025-06-23 23:09:35 INFO Expected Optimum FE: -5000
+2025-06-23 23:09:35 INFO Unimodal AOCC mean: 0.1520
+2025-06-23 23:09:35 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO AOCC mean: 0.0507
+2025-06-23 23:09:35 INFO Run function 18 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:35 INFO FeHistory: [174950.42072839 103453.58279959 139899.95071981 ...  74043.19582966
+  30664.69096271  35213.97975303]
+2025-06-23 23:09:35 INFO Expected Optimum FE: -5000
+2025-06-23 23:09:35 INFO Unimodal AOCC mean: 0.1524
+2025-06-23 23:09:35 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO AOCC mean: 0.0508
+2025-06-23 23:09:35 INFO Run function 18 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:09:35 INFO FeHistory: [237826.47313268 114984.48927729 116033.85912683 ... 297233.74234151
+ 279581.30658911 296408.37655453]
+2025-06-23 23:09:35 INFO Expected Optimum FE: -5000
+2025-06-23 23:09:35 INFO Unimodal AOCC mean: 0.1505
+2025-06-23 23:09:35 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 23:09:35 INFO AOCC mean: 0.0502
+2025-06-23 23:10:15 INFO Run function 18 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-23 23:10:15 INFO FeHistory: [126958.86546564 185262.26260036 142742.4526458  ...  -4317.89832367
+  -4317.89881024  -4317.89870681]
+2025-06-23 23:10:15 INFO Expected Optimum FE: -5000
+2025-06-23 23:10:15 INFO Unimodal AOCC mean: 0.1701
+2025-06-23 23:10:15 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-23 23:10:15 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 23:10:15 INFO AOCC mean: 0.0567

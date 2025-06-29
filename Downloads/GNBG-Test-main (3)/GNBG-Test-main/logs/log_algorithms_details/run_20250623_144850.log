@@ -1,0 +1,2910 @@
+2025-06-23 14:48:51 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 14:48:51 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 14:48:51 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 14:51:54 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1794
+2025-06-23 14:51:54 INFO FeHistory: [-701.30209998 -701.29974749 -701.33448017 ... -701.45154423 -701.46427416
+ -701.43678916]
+2025-06-23 14:51:54 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 14:51:54 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndClustering
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveDEwithArchiveAndClustering
+# Description: Differential Evolution with archive and clustering to escape local optima in multimodal landscapes.
+# Code:
+class AdaptiveDEwithArchiveAndClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.F = 0.8
+        self.CR = 0.9
+        self.archive = []
+        self.cluster_threshold = 0.1 # Distance threshold for clustering
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+            self._adapt_parameters(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_distinct(population, i)
+            mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        indices = np.argsort(combined_fit)
+        return combined_pop[indices[:self.population_size]], combined_fit[indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _adapt_parameters(self, population, fitness_values):
+        distances = cdist(population, population)
+        np.fill_diagonal(distances, np.inf)  # Ignore self-distances
+        min_distance = np.min(distances)
+
+        if min_distance < self.cluster_threshold:
+            self.F *= 0.95
+            self.CR *= 0.95
+        else:
+            self.F = min(self.F * 1.05, 1.0)
+            self.CR = min(self.CR * 1.05, 1.0)
+
+2025-06-23 14:51:54 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 14:51:55 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1804
+2025-06-23 14:51:55 INFO FeHistory: [-701.3299981  -701.30773854 -701.33231078 ... -701.57704796 -701.56695352
+ -701.54535357]
+2025-06-23 14:51:55 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 14:51:55 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithLevyFlightsAndArchive
+import numpy as np
+from scipy.stats import levy, multivariate_normal
+
+# Name: AdaptiveDEwithLevyFlightsAndArchive
+# Description: Differential Evolution with Levy flights and an archive for robust multimodal optimization.
+# Code:
+
+class AdaptiveDEwithLevyFlightsAndArchive:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.beta = 1.5 # Levy flight parameter
+        self.levy_probability = 0.1 # Probability of applying levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            if np.random.rand() < self.levy_probability:
+                offspring[i] = self._levy_flight_mutation(population[i])
+            else:
+                a, b, c = self._select_three_distinct(population, i)
+                mutant = a + self.F * (b - c)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = self._crossover(population[i], mutant)
+                offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, solution):
+        step = levy.rvs(self.beta, size=self.dim)
+        mutant = solution + 0.1*(self.upper_bounds - self.lower_bounds) * step #Adaptive step size
+        return np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        return combined_pop[sorted_indices[:self.population_size]], combined_fit[sorted_indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+2025-06-23 14:51:55 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 14:51:57 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1777
+2025-06-23 14:51:57 INFO FeHistory: [-701.35813675 -701.31644256 -701.28451703 ... -701.61296911 -701.600971
+ -701.62735011]
+2025-06-23 14:51:57 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 14:51:57 INFO Good algorithm:
+Algorithm Name: AdaptiveDELevyFlightArchiveEA
+import numpy as np
+from scipy.stats import levy, norm
+
+# Name: AdaptiveDELevyFlightArchiveEA
+# Description: Combines Differential Evolution, Levy flights, and an archive for robust multimodal optimization.
+# Code:
+
+class AdaptiveDELevyFlightArchiveEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.beta = 1.5  # Levy flight parameter
+        self.F = 0.5 # Differential evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+        self.step_size = 0.1 * (self.upper_bounds - self.lower_bounds)
+        self.step_size_decay = 0.99
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._replacement_selection(
+                population, fitness_values, offspring, offspring_fitness
+            )
+
+            self.archive = self._update_archive(
+                np.vstack((population, offspring)),
+                np.concatenate((fitness_values, offspring_fitness))
+            )
+
+            self._update_best(offspring, offspring_fitness)
+            self.step_size *= self.step_size_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_parents(i, population)
+            mutant = self._differential_mutation(a, b, c)
+            offspring[i] = self._crossover(population[i], mutant)
+            offspring[i] += self._levy_flight_perturbation()
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds)
+        return offspring
+
+    def _select_parents(self, i, population):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+    
+    def _differential_mutation(self, a, b, c):
+        return a + self.F * (b - c)
+
+    def _crossover(self, x, v):
+        jrand = np.random.randint(0, self.dim)
+        u = np.copy(x)
+        for j in range(self.dim):
+            if np.random.rand() < self.CR or j == jrand:
+                u[j] = v[j]
+        return u
+
+    def _levy_flight_perturbation(self):
+        step = levy.rvs(self.beta, size=self.dim)
+        return self.step_size * step
+
+    def _replacement_selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+2025-06-23 14:51:57 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 14:54:41 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1088
+2025-06-23 14:54:41 INFO FeHistory: [-222.20225876 -221.55802623 -222.65996949 ... -227.19271915 -227.19271915
+ -227.19271915]
+2025-06-23 14:54:41 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 14:54:41 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndClustering
+import numpy as np
+from scipy.spatial.distance import cdist
+
+# Name: AdaptiveDEwithArchiveAndClustering
+# Description: Differential Evolution with archive and clustering to escape local optima in multimodal landscapes.
+# Code:
+class AdaptiveDEwithArchiveAndClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.F = 0.8
+        self.CR = 0.9
+        self.archive = []
+        self.cluster_threshold = 0.1 # Distance threshold for clustering
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+            self._adapt_parameters(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_distinct(population, i)
+            mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        indices = np.argsort(combined_fit)
+        return combined_pop[indices[:self.population_size]], combined_fit[indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _adapt_parameters(self, population, fitness_values):
+        distances = cdist(population, population)
+        np.fill_diagonal(distances, np.inf)  # Ignore self-distances
+        min_distance = np.min(distances)
+
+        if min_distance < self.cluster_threshold:
+            self.F *= 0.95
+            self.CR *= 0.95
+        else:
+            self.F = min(self.F * 1.05, 1.0)
+            self.CR = min(self.CR * 1.05, 1.0)
+
+2025-06-23 14:54:41 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 14:54:58 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1080
+2025-06-23 14:54:58 INFO FeHistory: [-221.62179059 -223.24860602 -222.17358388 ... -222.04221208 -221.62345925
+ -221.54435758]
+2025-06-23 14:54:58 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 14:54:58 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithLevyFlightsAndArchive
+import numpy as np
+from scipy.stats import levy, multivariate_normal
+
+# Name: AdaptiveDEwithLevyFlightsAndArchive
+# Description: Differential Evolution with Levy flights and an archive for robust multimodal optimization.
+# Code:
+
+class AdaptiveDEwithLevyFlightsAndArchive:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.beta = 1.5 # Levy flight parameter
+        self.levy_probability = 0.1 # Probability of applying levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            if np.random.rand() < self.levy_probability:
+                offspring[i] = self._levy_flight_mutation(population[i])
+            else:
+                a, b, c = self._select_three_distinct(population, i)
+                mutant = a + self.F * (b - c)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = self._crossover(population[i], mutant)
+                offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, solution):
+        step = levy.rvs(self.beta, size=self.dim)
+        mutant = solution + 0.1*(self.upper_bounds - self.lower_bounds) * step #Adaptive step size
+        return np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        return combined_pop[sorted_indices[:self.population_size]], combined_fit[sorted_indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+2025-06-23 14:54:58 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 14:55:06 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1063
+2025-06-23 14:55:06 INFO FeHistory: [-221.73122996 -221.02718102 -222.315446   ... -226.05354607 -226.06315628
+ -226.02596809]
+2025-06-23 14:55:06 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 14:55:06 INFO Good algorithm:
+Algorithm Name: AdaptiveDELevyFlightArchiveEA
+import numpy as np
+from scipy.stats import levy, norm
+
+# Name: AdaptiveDELevyFlightArchiveEA
+# Description: Combines Differential Evolution, Levy flights, and an archive for robust multimodal optimization.
+# Code:
+
+class AdaptiveDELevyFlightArchiveEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.beta = 1.5  # Levy flight parameter
+        self.F = 0.5 # Differential evolution scaling factor
+        self.CR = 0.9 # Crossover rate
+        self.step_size = 0.1 * (self.upper_bounds - self.lower_bounds)
+        self.step_size_decay = 0.99
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._replacement_selection(
+                population, fitness_values, offspring, offspring_fitness
+            )
+
+            self.archive = self._update_archive(
+                np.vstack((population, offspring)),
+                np.concatenate((fitness_values, offspring_fitness))
+            )
+
+            self._update_best(offspring, offspring_fitness)
+            self.step_size *= self.step_size_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_parents(i, population)
+            mutant = self._differential_mutation(a, b, c)
+            offspring[i] = self._crossover(population[i], mutant)
+            offspring[i] += self._levy_flight_perturbation()
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds)
+        return offspring
+
+    def _select_parents(self, i, population):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+    
+    def _differential_mutation(self, a, b, c):
+        return a + self.F * (b - c)
+
+    def _crossover(self, x, v):
+        jrand = np.random.randint(0, self.dim)
+        u = np.copy(x)
+        for j in range(self.dim):
+            if np.random.rand() < self.CR or j == jrand:
+                u[j] = v[j]
+        return u
+
+    def _levy_flight_perturbation(self):
+        step = levy.rvs(self.beta, size=self.dim)
+        return self.step_size * step
+
+    def _replacement_selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+2025-06-23 14:55:06 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 14:58:03 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 14:58:03 INFO FeHistory: [183.33811922 200.70456266 193.73023697 ...  87.6775385   77.34023627
+  83.62021345]
+2025-06-23 14:58:03 INFO Expected Optimum FE: -100
+2025-06-23 14:58:03 INFO Unimodal AOCC mean: 0.1794
+2025-06-23 14:58:03 INFO Multimodal (single component) AOCC mean: 0.1088
+2025-06-23 14:58:03 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 14:58:03 INFO AOCC mean: 0.0961
+2025-06-23 14:58:03 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 14:58:19 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 14:58:19 INFO FeHistory: [170.57692819 198.13965117 188.46080879 ...  69.4649942  203.04848861
+  67.11487235]
+2025-06-23 14:58:19 INFO Expected Optimum FE: -100
+2025-06-23 14:58:19 INFO Unimodal AOCC mean: 0.1804
+2025-06-23 14:58:19 INFO Multimodal (single component) AOCC mean: 0.1080
+2025-06-23 14:58:19 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 14:58:19 INFO AOCC mean: 0.0961
+2025-06-23 14:58:19 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 14:58:26 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 14:58:26 INFO FeHistory: [212.00015539 188.48076894 215.19584668 ...  70.05517114 106.96382686
+  68.24176281]
+2025-06-23 14:58:26 INFO Expected Optimum FE: -100
+2025-06-23 14:58:26 INFO Unimodal AOCC mean: 0.1777
+2025-06-23 14:58:26 INFO Multimodal (single component) AOCC mean: 0.1063
+2025-06-23 14:58:26 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 14:58:26 INFO AOCC mean: 0.0947
+2025-06-23 15:00:17 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1797
+2025-06-23 15:00:17 INFO FeHistory: [-701.26789809 -701.29879469 -701.27810958 ... -701.52766218 -701.49430296
+ -701.49458904]
+2025-06-23 15:00:17 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:00:17 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndLevyFlight
+import numpy as np
+import random
+
+# Name: AdaptiveDEwithArchiveAndLevyFlight
+# Description: Combines Differential Evolution, an archive, and Levy flight mutation for robust multimodal optimization.
+# Code:
+class AdaptiveDEwithArchiveAndLevyFlight:
+    """
+    Combines Differential Evolution (DE), an archive for diversity, and Levy flight mutation to escape local optima in multimodal landscapes.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9 # Crossover rate
+        self.levy_alpha = 1.5 #Levy Flight parameter
+        self.mutation_scale = 0.8
+        self.mutation_scale_decay = 0.99
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = self._initialize_population()
+        self.fitness_values = self._evaluate_population(objective_function)
+        self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population, self.fitness_values)
+        self.archive = self._update_archive(self.population, self.fitness_values)
+
+        while self.eval_count < self.budget:
+            new_population = []
+            new_fitness_values = []
+            for i in range(self.population_size):
+                a, b, c = self._select_different(i)
+                mutant = self.population[a] + self.F * (self.population[b] - self.population[c])
+                
+                # Levy flight perturbation
+                mutant += self._levy_flight(self.mutation_scale)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, self.population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                self.eval_count += 1
+                if trial_fitness < self.fitness_values[i]:
+                    new_population.append(trial)
+                    new_fitness_values.append(trial_fitness)
+                else:
+                    new_population.append(self.population[i])
+                    new_fitness_values.append(self.fitness_values[i])
+
+            self.population = np.array(new_population)
+            self.fitness_values = np.array(new_fitness_values)
+            self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population, self.fitness_values)
+            self.archive = self._update_archive(np.vstack((self.population,self.population)), np.concatenate((self.fitness_values, self.fitness_values)))
+            self.mutation_scale *= self.mutation_scale_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _evaluate_population(self, objective_function):
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+        return fitness
+
+    def _select_different(self, index):
+        a, b, c = random.sample(range(self.population_size), 3)
+        while a == index or b == index or c == index or a == b or a == c or b == c:
+            a, b, c = random.sample(range(self.population_size), 3)
+        return a, b, c
+
+    def _find_best(self, population, fitness_values):
+        best_index = np.argmin(fitness_values)
+        return population[best_index], fitness_values[best_index]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _levy_flight(self, scale):
+        u = np.random.randn(self.dim)
+        v = np.random.randn(self.dim)
+        step = u / (np.abs(v)**(1/self.levy_alpha))
+        return step * scale
+
+2025-06-23 15:00:17 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:01:09 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1950
+2025-06-23 15:01:09 INFO FeHistory: [-701.3372391  -701.29505199 -701.30797079 ... -701.96859348 -702.10985768
+ -702.13958738]
+2025-06-23 15:01:09 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:01:09 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndLevyFlights
+import numpy as np
+import random
+
+class AdaptiveDEwithArchiveAndLevyFlights:
+    """
+    Combines Differential Evolution (DE), an archive, and Levy flights for robust multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 population_size: int = 100, archive_size: int = 200, F: float = 0.5, CR: float = 0.9):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = population_size
+        self.archive_size = archive_size
+        self.F = F  # Differential Evolution scaling factor
+        self.CR = CR  # Crossover rate
+        self.archive = []
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness_values)
+            offspring = self._levy_flight_perturbation(offspring) #Adding Levy Flight Perturbation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            population, fitness_values = self._select_next_generation(
+                population, fitness_values, offspring, offspring_fitness
+            )
+            self.archive = self._update_archive(np.vstack((population, offspring)),
+                                                np.concatenate((fitness_values, offspring_fitness)))
+            self._update_best(offspring, offspring_fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _differential_evolution(self, population, fitness_values):
+        offspring = []
+        for i in range(self.population_size):
+            a, b, c = self._select_distinct_indices(i, self.population_size)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  #Bound the mutant
+            trial = self._crossover(population[i], mutant)
+            offspring.append(trial)
+        return np.array(offspring)
+
+    def _select_distinct_indices(self, exclude, population_size):
+        indices = random.sample(range(population_size), 3)
+        while exclude in indices:
+            indices = random.sample(range(population_size), 3)
+        return indices
+
+    def _crossover(self, x, v):
+      dim = len(x)
+      jrand = random.randint(0, dim-1)
+      y = np.copy(x)
+      for j in range(dim):
+        if random.random() < self.CR or j == jrand:
+          y[j] = v[j]
+      return y
+
+    def _levy_flight_perturbation(self, offspring):
+        beta = 1.5 # Levy exponent
+        sigma = (np.math.gamma(1+beta)*np.sin(np.pi*beta/2)/(np.math.gamma((1+beta)/2)*beta*2**((beta-1)/2)))**(1/beta)
+        u = np.random.normal(0, 1, size=offspring.shape)
+        v = np.random.normal(0, 1, size=offspring.shape)
+        step = u / (np.abs(v)**(1/beta))
+        perturbed_offspring = offspring + 0.1*step*np.random.uniform(0,1, size=offspring.shape) #Adding Levy Flight
+        return np.clip(perturbed_offspring, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+2025-06-23 15:01:09 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:02:12 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1109
+2025-06-23 15:02:12 INFO FeHistory: [-221.86424407 -221.37989682 -222.49219732 ... -222.02573768 -220.76063686
+ -222.0782843 ]
+2025-06-23 15:02:12 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:02:12 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndLevyFlight
+import numpy as np
+import random
+
+# Name: AdaptiveDEwithArchiveAndLevyFlight
+# Description: Combines Differential Evolution, an archive, and Levy flight mutation for robust multimodal optimization.
+# Code:
+class AdaptiveDEwithArchiveAndLevyFlight:
+    """
+    Combines Differential Evolution (DE), an archive for diversity, and Levy flight mutation to escape local optima in multimodal landscapes.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9 # Crossover rate
+        self.levy_alpha = 1.5 #Levy Flight parameter
+        self.mutation_scale = 0.8
+        self.mutation_scale_decay = 0.99
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = self._initialize_population()
+        self.fitness_values = self._evaluate_population(objective_function)
+        self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population, self.fitness_values)
+        self.archive = self._update_archive(self.population, self.fitness_values)
+
+        while self.eval_count < self.budget:
+            new_population = []
+            new_fitness_values = []
+            for i in range(self.population_size):
+                a, b, c = self._select_different(i)
+                mutant = self.population[a] + self.F * (self.population[b] - self.population[c])
+                
+                # Levy flight perturbation
+                mutant += self._levy_flight(self.mutation_scale)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                trial = np.where(np.random.rand(self.dim) < self.CR, mutant, self.population[i])
+                trial_fitness = objective_function(trial.reshape(1, -1))[0]
+                self.eval_count += 1
+                if trial_fitness < self.fitness_values[i]:
+                    new_population.append(trial)
+                    new_fitness_values.append(trial_fitness)
+                else:
+                    new_population.append(self.population[i])
+                    new_fitness_values.append(self.fitness_values[i])
+
+            self.population = np.array(new_population)
+            self.fitness_values = np.array(new_fitness_values)
+            self.best_solution_overall, self.best_fitness_overall = self._find_best(self.population, self.fitness_values)
+            self.archive = self._update_archive(np.vstack((self.population,self.population)), np.concatenate((self.fitness_values, self.fitness_values)))
+            self.mutation_scale *= self.mutation_scale_decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _evaluate_population(self, objective_function):
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+        return fitness
+
+    def _select_different(self, index):
+        a, b, c = random.sample(range(self.population_size), 3)
+        while a == index or b == index or c == index or a == b or a == c or b == c:
+            a, b, c = random.sample(range(self.population_size), 3)
+        return a, b, c
+
+    def _find_best(self, population, fitness_values):
+        best_index = np.argmin(fitness_values)
+        return population[best_index], fitness_values[best_index]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _levy_flight(self, scale):
+        u = np.random.randn(self.dim)
+        v = np.random.randn(self.dim)
+        step = u / (np.abs(v)**(1/self.levy_alpha))
+        return step * scale
+
+2025-06-23 15:02:12 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:04:30 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1088
+2025-06-23 15:04:30 INFO FeHistory: [-221.07397281 -221.53352302 -221.9186529  ... -222.34527255 -223.46221807
+ -222.36397225]
+2025-06-23 15:04:30 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:04:30 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveAndLevyFlights
+import numpy as np
+import random
+
+class AdaptiveDEwithArchiveAndLevyFlights:
+    """
+    Combines Differential Evolution (DE), an archive, and Levy flights for robust multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 population_size: int = 100, archive_size: int = 200, F: float = 0.5, CR: float = 0.9):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = population_size
+        self.archive_size = archive_size
+        self.F = F  # Differential Evolution scaling factor
+        self.CR = CR  # Crossover rate
+        self.archive = []
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness_values)
+            offspring = self._levy_flight_perturbation(offspring) #Adding Levy Flight Perturbation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            population, fitness_values = self._select_next_generation(
+                population, fitness_values, offspring, offspring_fitness
+            )
+            self.archive = self._update_archive(np.vstack((population, offspring)),
+                                                np.concatenate((fitness_values, offspring_fitness)))
+            self._update_best(offspring, offspring_fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _differential_evolution(self, population, fitness_values):
+        offspring = []
+        for i in range(self.population_size):
+            a, b, c = self._select_distinct_indices(i, self.population_size)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  #Bound the mutant
+            trial = self._crossover(population[i], mutant)
+            offspring.append(trial)
+        return np.array(offspring)
+
+    def _select_distinct_indices(self, exclude, population_size):
+        indices = random.sample(range(population_size), 3)
+        while exclude in indices:
+            indices = random.sample(range(population_size), 3)
+        return indices
+
+    def _crossover(self, x, v):
+      dim = len(x)
+      jrand = random.randint(0, dim-1)
+      y = np.copy(x)
+      for j in range(dim):
+        if random.random() < self.CR or j == jrand:
+          y[j] = v[j]
+      return y
+
+    def _levy_flight_perturbation(self, offspring):
+        beta = 1.5 # Levy exponent
+        sigma = (np.math.gamma(1+beta)*np.sin(np.pi*beta/2)/(np.math.gamma((1+beta)/2)*beta*2**((beta-1)/2)))**(1/beta)
+        u = np.random.normal(0, 1, size=offspring.shape)
+        v = np.random.normal(0, 1, size=offspring.shape)
+        step = u / (np.abs(v)**(1/beta))
+        perturbed_offspring = offspring + 0.1*step*np.random.uniform(0,1, size=offspring.shape) #Adding Levy Flight
+        return np.clip(perturbed_offspring, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_next_generation(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+2025-06-23 15:04:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:04:45 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 15:04:45 INFO FeHistory: [209.61043883 183.1449953  200.42195972 ...  66.68156405  83.90477922
+  73.28892117]
+2025-06-23 15:04:45 INFO Expected Optimum FE: -100
+2025-06-23 15:04:45 INFO Unimodal AOCC mean: 0.1797
+2025-06-23 15:04:45 INFO Multimodal (single component) AOCC mean: 0.1109
+2025-06-23 15:04:45 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 15:04:45 INFO AOCC mean: 0.0969
+2025-06-23 15:07:37 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0257
+2025-06-23 15:07:37 INFO FeHistory: [162.0662838  200.09201141 221.03453377 ... -62.07697198 -53.60660158
+ -60.49454973]
+2025-06-23 15:07:37 INFO Expected Optimum FE: -100
+2025-06-23 15:07:37 INFO Unimodal AOCC mean: 0.1950
+2025-06-23 15:07:37 INFO Multimodal (single component) AOCC mean: 0.1088
+2025-06-23 15:07:37 INFO Multimodal (multiple components) AOCC mean: 0.0257
+2025-06-23 15:07:37 INFO AOCC mean: 0.1098
+2025-06-23 15:08:29 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 15:08:29 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 15:08:29 ERROR Can not run the algorithm
+2025-06-23 15:08:29 ERROR Can not run the algorithm
+2025-06-23 15:08:29 INFO Run function 2 complete. FEHistory len: 201, AOCC: 0.1751
+2025-06-23 15:08:29 INFO FeHistory: [-701.29323087 -701.321867   -701.29925295 -701.30914024 -701.28900062
+ -701.30635808 -701.28669423 -701.28536568 -701.3284764  -701.28067456
+ -701.30269232 -701.31643672 -701.32151084 -701.29804619 -701.32904787
+ -701.28227875 -701.31627028 -701.27115017 -701.30735575 -701.34419131
+ -701.29534988 -701.31085627 -701.30262002 -701.31867596 -701.29871956
+ -701.29773844 -701.31129533 -701.32244528 -701.32636358 -701.34578384
+ -701.30018573 -701.31326396 -701.31889635 -701.30305243 -701.33023765
+ -701.28615153 -701.32061644 -701.32049438 -701.31958268 -701.29517092
+ -701.29861851 -701.31670303 -701.30030327 -701.31641599 -701.3149386
+ -701.35945632 -701.28904795 -701.33783554 -701.28868222 -701.31384173
+ -701.30137271 -701.29756743 -701.28193392 -701.34335836 -701.31754465
+ -701.29096416 -701.28310012 -701.32317058 -701.31486115 -701.32215551
+ -701.31419696 -701.32697042 -701.29327898 -701.30884536 -701.27473929
+ -701.29398605 -701.34110551 -701.27249917 -701.34685686 -701.30457
+ -701.30463098 -701.29084806 -701.31244312 -701.30397046 -701.31424461
+ -701.34369212 -701.30632987 -701.30944359 -701.28397735 -701.30642726
+ -701.28027287 -701.29102966 -701.32878311 -701.32156166 -701.31487225
+ -701.34495938 -701.34608953 -701.34034998 -701.29549709 -701.29572408
+ -701.29789074 -701.31386607 -701.29764023 -701.29068928 -701.27546468
+ -701.32863337 -701.27648138 -701.32759257 -701.29984082 -701.30048685
+ -701.3475621  -701.28329883 -701.2864719  -701.30975981 -701.28572663
+ -701.32517032 -701.308104   -701.27031533 -701.26059656 -701.32099963
+ -701.25403225 -701.28659812 -701.31374729 -701.27751331 -701.28105692
+ -701.28271713 -701.28690272 -701.30683923 -701.28139259 -701.29483463
+ -701.30280534 -701.29612913 -701.29495297 -701.26792148 -701.34298683
+ -701.27587121 -701.28789973 -701.30271245 -701.31021747 -701.29035081
+ -701.32273482 -701.31179499 -701.31059769 -701.26452927 -701.28610851
+ -701.3166633  -701.30908677 -701.31432478 -701.27454661 -701.28314964
+ -701.272549   -701.2735968  -701.30986212 -701.31561604 -701.30313813
+ -701.3131819  -701.26669969 -701.25449132 -701.26234017 -701.29080185
+ -701.27600641 -701.27998729 -701.26021408 -701.30824685 -701.29510243
+ -701.27736973 -701.2981708  -701.28796609 -701.27141144 -701.29083339
+ -701.28069427 -701.2951642  -701.26509415 -701.30476976 -701.29656192
+ -701.26339061 -701.28458788 -701.30760877 -701.31595553 -701.28632977
+ -701.31075611 -701.26742197 -701.27746501 -701.2853613  -701.27946216
+ -701.2929997  -701.28281385 -701.30284604 -701.28055388 -701.26201284
+ -701.28332455 -701.24213826 -701.31303711 -701.29292931 -701.27853373
+ -701.30139379 -701.26792348 -701.26663442 -701.27191751 -701.28652998
+ -701.28959595 -701.30162833 -701.27445519 -701.29610859 -701.28194929
+ -701.29089856 -701.31645869 -701.27343197 -701.28864009 -701.27124413
+ -701.31552841]
+2025-06-23 15:08:29 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:08:29 INFO Good algorithm:
+Algorithm Name: MultimodalAdaptiveDifferentialEvolution
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: MultimodalAdaptiveDifferentialEvolution
+# Description: A differential evolution algorithm with adaptive mutation and a niching strategy to escape local optima in multimodal landscapes.
+# Code:
+class MultimodalAdaptiveDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9 # Crossover rate
+        self.niche_radius = 0.2 * np.linalg.norm(self.upper_bounds - self.lower_bounds) # Adaptive niching
+        self.archive = [] #Store diverse solutions
+        self.archive_size = 200
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+
+            self._update_archive(population, fitness_values)
+            self._update_best(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            # Mutation
+            a, b, c = self._select_different_individuals(i, population)
+            mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            crosspoints = np.random.rand(self.dim) < self.CR
+            offspring[i] = np.where(crosspoints, mutant, population[i])
+        return offspring
+
+    def _select_different_individuals(self, i, population):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices]
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fitness)
+        return combined_population[sorted_indices[:self.population_size]], combined_fitness[sorted_indices[:self.population_size]]
+
+    def _update_best(self, population, fitness_values):
+        best_index = np.argmin(fitness_values)
+        if fitness_values[best_index] < self.best_fitness_overall:
+            self.best_fitness_overall = fitness_values[best_index]
+            self.best_solution_overall = population[best_index]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        for sol in combined:
+            too_close = False
+            if len(self.archive) > 0:
+                distances = np.linalg.norm(self.archive[:, :-1] - sol[:-1], axis=1)
+                too_close = np.any(distances < self.niche_radius)
+
+            if not too_close:
+                self.archive.append(sol)
+
+        self.archive.sort(key=lambda x: x[-1]) #Keep best
+        self.archive = np.array(self.archive[:self.archive_size])
+
+2025-06-23 15:08:29 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:08:29 INFO Run function 2 complete. FEHistory len: 201, AOCC: 0.1756
+2025-06-23 15:08:29 INFO FeHistory: [-701.30137101 -701.31488979 -701.27857387 -701.30134533 -701.29533137
+ -701.31299204 -701.33729302 -701.2881187  -701.3223733  -701.30477935
+ -701.32118659 -701.34404736 -701.27684402 -701.30802777 -701.34855218
+ -701.31077773 -701.30689934 -701.35139305 -701.2866433  -701.27011372
+ -701.3004539  -701.31874791 -701.30306346 -701.29762522 -701.30320873
+ -701.31147511 -701.31220565 -701.29187946 -701.31354779 -701.30176797
+ -701.30696023 -701.31047376 -701.3281865  -701.30347888 -701.30705585
+ -701.29432166 -701.28735651 -701.34646684 -701.29286382 -701.2798284
+ -701.31775067 -701.30246468 -701.31530224 -701.31958575 -701.27865315
+ -701.31031018 -701.29022583 -701.2955736  -701.32671315 -701.30124947
+ -701.32316741 -701.28504219 -701.30173485 -701.30248737 -701.29676075
+ -701.33307207 -701.28573401 -701.31687208 -701.32977528 -701.31189203
+ -701.32102129 -701.30564888 -701.31034245 -701.36136545 -701.33848592
+ -701.29564484 -701.3805145  -701.3203844  -701.322653   -701.3163508
+ -701.3375067  -701.33506257 -701.28513779 -701.29303889 -701.28873965
+ -701.29995274 -701.29680363 -701.31597571 -701.28818459 -701.30780822
+ -701.27153811 -701.34168827 -701.31612394 -701.29334707 -701.29650957
+ -701.31507651 -701.31752082 -701.29727149 -701.29294306 -701.31031626
+ -701.31636699 -701.3104206  -701.31957777 -701.30758182 -701.27434306
+ -701.32545118 -701.32073594 -701.27150279 -701.30296834 -701.30354037
+ -701.32917746 -701.33787731 -701.27219529 -701.28428437 -701.2674219
+ -701.25884452 -701.27570612 -701.25739537 -701.27856062 -701.25689181
+ -701.24332159 -701.31727626 -701.28970359 -701.29142302 -701.28914048
+ -701.29573262 -701.28248127 -701.34388369 -701.30184118 -701.27648968
+ -701.29087095 -701.3310726  -701.29874294 -701.31454139 -701.27778854
+ -701.24664057 -701.29447383 -701.30449413 -701.27352933 -701.25912288
+ -701.28006757 -701.28474965 -701.26905826 -701.31347664 -701.29156599
+ -701.30218453 -701.28649727 -701.31598075 -701.25444599 -701.27966531
+ -701.29111494 -701.29529466 -701.28416931 -701.2992084  -701.29677208
+ -701.27559719 -701.25808901 -701.27165875 -701.28322925 -701.31621898
+ -701.2825215  -701.27448834 -701.27558617 -701.24918808 -701.30226764
+ -701.28306847 -701.31129174 -701.25573318 -701.27265682 -701.31583083
+ -701.27939758 -701.27424684 -701.3008065  -701.27279668 -701.32457845
+ -701.25349392 -701.29963495 -701.29245741 -701.32405466 -701.299371
+ -701.32238931 -701.28024539 -701.30989629 -701.31187939 -701.29622291
+ -701.26110875 -701.32337873 -701.26684323 -701.29697266 -701.27970837
+ -701.27527426 -701.27692724 -701.32309434 -701.29861957 -701.31701374
+ -701.3405627  -701.2815238  -701.31786831 -701.32170702 -701.28048947
+ -701.31190727 -701.31593918 -701.29381743 -701.31530528 -701.27872131
+ -701.27753404 -701.2933479  -701.27378795 -701.27747698 -701.27742309
+ -701.31731073]
+2025-06-23 15:08:29 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:08:29 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithClustering
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: AdaptiveDifferentialEvolutionWithClustering
+# Description: Differential Evolution enhanced with adaptive mutation and clustering for efficient multimodal optimization.
+# Code:
+class AdaptiveDifferentialEvolutionWithClustering:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.archive = []
+        self.archive_size = 200
+        self.cluster_threshold = 0.1 # controls clustering granularity
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+            self._update_best(offspring, offspring_fitness)
+            self._adaptive_parameter_tuning(population, fitness_values) #Adaptive Parameter tuning
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_different_individuals(i, population)
+            v = a + self.F * (b - c)
+            v = np.clip(v, self.lower_bounds, self.upper_bounds)
+            offspring[i] = self._crossover(population[i], v)
+        return offspring
+
+    def _select_different_individuals(self, i, population):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+      jrand = np.random.randint(0, self.dim)
+      y = np.copy(x)
+      for j in range(self.dim):
+        if np.random.rand() < self.CR or j == jrand:
+          y[j] = v[j]
+      return y
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fitness)
+        return combined_population[sorted_indices[:self.population_size]], combined_fitness[sorted_indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        #Simple distance based archive update
+        if len(self.archive) < self.archive_size:
+            for sol in combined:
+                already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+                if not already_present:
+                    self.archive.append(sol)
+        else:
+            # Replace worst with better solutions
+            for sol in combined:
+                worst_index = np.argmax([s[-1] for s in self.archive])
+                if sol[-1] < self.archive[worst_index][-1]:
+                    self.archive[worst_index] = sol
+        return np.array(self.archive)
+
+    def _adaptive_parameter_tuning(self, population, fitness_values):
+        # Simple adaptive strategy: Adjust F and CR based on convergence
+        mean_fitness = np.mean(fitness_values)
+        if mean_fitness < 0.1 * self.best_fitness_overall:  # Adjust parameters if converging fast
+            self.F *= 0.9
+            self.CR *= 0.95
+        elif mean_fitness > 0.8 * self.best_fitness_overall:  #Explore more if slow convergence
+            self.F *=1.1
+            self.CR *=1.05
+
+
+        self.F = np.clip(self.F, 0.1, 1.0)  # Keep F within bounds
+        self.CR = np.clip(self.CR, 0.1, 1.0) # Keep CR within bounds
+
+2025-06-23 15:08:29 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:08:29 ERROR Can not run the algorithm
+2025-06-23 15:08:29 ERROR Can not run the algorithm
+2025-06-23 15:08:30 INFO Run function 15 complete. FEHistory len: 201, AOCC: 0.1049
+2025-06-23 15:08:30 INFO FeHistory: [-222.34596831 -222.62291052 -222.08298875 -222.32346072 -222.19944871
+ -222.22722787 -222.60001181 -222.54795031 -222.02294409 -222.92765719
+ -223.15511881 -222.35482622 -222.78707933 -222.02933283 -221.19563376
+ -222.1050387  -222.70901156 -221.61161021 -221.78802781 -222.2902677
+ -222.57694651 -222.70268583 -221.04535816 -221.19316445 -222.52690194
+ -223.14768642 -221.4679121  -223.0149177  -221.94462048 -221.03672766
+ -220.81064578 -223.16683666 -222.29955755 -221.01645608 -221.1442973
+ -222.43473544 -222.05952819 -222.31817839 -221.82851463 -221.67607252
+ -220.48149446 -222.49388458 -220.38421318 -221.69165223 -222.26050448
+ -222.46087128 -225.33900324 -222.362685   -222.40952264 -223.59529869
+ -221.7139547  -222.79664276 -221.97477853 -222.14592632 -222.73521485
+ -221.55925235 -223.0531214  -220.85550775 -222.64586204 -221.64846759
+ -223.27485338 -221.10528174 -221.96504395 -222.07102193 -221.71225872
+ -221.28783897 -222.70953861 -222.26043998 -221.729818   -222.38432832
+ -222.2310033  -220.78568176 -221.88930108 -222.06174673 -223.21805644
+ -221.24735185 -222.06312247 -221.9534046  -222.992396   -222.35912364
+ -222.38656283 -222.49577296 -222.11651914 -222.28085483 -221.00977308
+ -222.2070298  -221.29286573 -222.78701387 -220.95546912 -221.16795187
+ -222.27916617 -221.51864573 -222.60929709 -220.67994062 -222.31566817
+ -223.25156921 -222.42608472 -222.80774401 -221.68096096 -221.34455799
+ -221.44890248 -221.28252296 -222.16253241 -221.63489731 -222.06553704
+ -222.08063889 -220.67216035 -221.09499469 -221.37428511 -221.33530084
+ -221.21152549 -222.13240052 -224.64137195 -222.19787274 -223.30392229
+ -221.02200674 -222.68053014 -223.77704995 -222.05187747 -221.95121155
+ -222.31365706 -221.41873313 -224.04370932 -221.46242404 -223.32039051
+ -222.28429847 -221.64607579 -221.42024799 -220.63892957 -221.15072556
+ -220.78824674 -221.54334489 -220.82373922 -220.98007311 -221.31634918
+ -221.02430761 -222.07628647 -222.89103825 -221.32528062 -221.68119919
+ -220.80635188 -222.57986447 -222.05128677 -221.72270593 -222.31155417
+ -221.54753806 -220.69059514 -220.67734425 -221.28473492 -220.13116643
+ -221.84600945 -223.38753223 -223.21300887 -221.19072487 -222.36382864
+ -220.75153945 -220.64456413 -220.5880324  -221.90551904 -221.82630922
+ -223.03955378 -221.94871131 -220.09378119 -220.44397869 -221.57952175
+ -220.98491542 -221.71229182 -221.51823845 -219.77836299 -223.28566984
+ -221.93995292 -220.58185223 -221.27374502 -222.58415788 -222.02226988
+ -221.828439   -222.38024756 -221.83408944 -221.49015986 -221.90032993
+ -220.86153479 -221.69761838 -223.96452589 -224.52018771 -222.37224957
+ -222.36466126 -221.645179   -222.39141664 -220.95213023 -221.44368665
+ -222.32680967 -221.91133193 -222.54447555 -223.08846134 -220.95579303
+ -222.01398458 -222.97491696 -222.0869694  -222.50981146 -222.75664939
+ -221.95487583]
+2025-06-23 15:08:30 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:08:30 INFO Good algorithm:
+Algorithm Name: MultimodalAdaptiveDifferentialEvolution
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: MultimodalAdaptiveDifferentialEvolution
+# Description: A differential evolution algorithm with adaptive mutation and a niching strategy to escape local optima in multimodal landscapes.
+# Code:
+class MultimodalAdaptiveDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9 # Crossover rate
+        self.niche_radius = 0.2 * np.linalg.norm(self.upper_bounds - self.lower_bounds) # Adaptive niching
+        self.archive = [] #Store diverse solutions
+        self.archive_size = 200
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+
+            self._update_archive(population, fitness_values)
+            self._update_best(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            # Mutation
+            a, b, c = self._select_different_individuals(i, population)
+            mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            crosspoints = np.random.rand(self.dim) < self.CR
+            offspring[i] = np.where(crosspoints, mutant, population[i])
+        return offspring
+
+    def _select_different_individuals(self, i, population):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return population[indices]
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fitness)
+        return combined_population[sorted_indices[:self.population_size]], combined_fitness[sorted_indices[:self.population_size]]
+
+    def _update_best(self, population, fitness_values):
+        best_index = np.argmin(fitness_values)
+        if fitness_values[best_index] < self.best_fitness_overall:
+            self.best_fitness_overall = fitness_values[best_index]
+            self.best_solution_overall = population[best_index]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        for sol in combined:
+            too_close = False
+            if len(self.archive) > 0:
+                distances = np.linalg.norm(self.archive[:, :-1] - sol[:-1], axis=1)
+                too_close = np.any(distances < self.niche_radius)
+
+            if not too_close:
+                self.archive.append(sol)
+
+        self.archive.sort(key=lambda x: x[-1]) #Keep best
+        self.archive = np.array(self.archive[:self.archive_size])
+
+2025-06-23 15:08:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:08:30 INFO Run function 15 complete. FEHistory len: 201, AOCC: 0.0999
+2025-06-23 15:08:30 INFO FeHistory: [-221.25174416 -223.1346812  -222.18467376 -221.44453816 -223.96769445
+ -222.29651771 -223.88889888 -222.44170675 -221.15687149 -222.99123071
+ -222.29336819 -222.08838888 -220.84194936 -222.34203234 -221.95493458
+ -221.428273   -222.95175952 -221.93484653 -220.42701333 -220.73790801
+ -222.21842995 -223.01013931 -223.17025679 -223.62780744 -221.91603528
+ -221.71377606 -223.20654694 -221.58675979 -222.81800813 -223.69297821
+ -222.53072224 -220.25620021 -223.43737396 -221.60280836 -221.0011559
+ -222.79426639 -221.08410067 -222.5790252  -221.57076475 -221.35196052
+ -222.01559226 -221.41936544 -220.76198529 -221.51826343 -221.64567927
+ -224.16663439 -221.97685631 -222.97492498 -221.57353208 -222.15032618
+ -221.60928544 -220.95950655 -222.89052503 -221.97699947 -221.68575195
+ -221.8739251  -221.28512835 -220.81229447 -222.9710408  -221.81675399
+ -221.68805957 -221.97990232 -221.6708274  -221.38385782 -222.72777005
+ -223.80184522 -222.4021674  -223.30994885 -221.96208196 -222.19397645
+ -220.73432307 -221.63394872 -219.96347597 -222.64048722 -222.49746799
+ -222.7841971  -223.32672951 -221.938162   -221.90859375 -222.89538866
+ -222.09577173 -222.08298605 -222.81094157 -221.25159488 -220.49201944
+ -221.87713432 -221.88256023 -223.13760154 -222.24995658 -221.9676986
+ -222.17291591 -222.94357761 -221.61372049 -221.67177668 -222.86734745
+ -220.64656071 -221.75366332 -221.88795733 -220.89672358 -222.67229317
+ -222.37872476 -222.53269601 -222.91735693 -222.39135056 -221.49451905
+ -220.42476679 -221.15979688 -222.34962977 -221.49011253 -222.12979733
+ -221.22472019 -222.53429663 -220.38453109 -221.08006699 -221.7070439
+ -221.17683155 -222.341865   -222.39862242 -222.63180655 -221.16513346
+ -222.3136856  -221.48197692 -221.74401325 -222.14130969 -223.03663328
+ -220.99447192 -220.94927192 -220.24517913 -221.18412415 -221.62534681
+ -221.44666374 -222.20390374 -222.65454289 -220.86741517 -219.32193202
+ -222.23639348 -221.6511872  -221.98518851 -223.20369481 -222.04425996
+ -221.44492206 -222.65704748 -221.74485386 -221.53419191 -221.6253993
+ -220.66117193 -222.2056755  -222.70581965 -220.98200382 -221.49346481
+ -221.75430977 -222.7801804  -221.02799737 -220.63344623 -223.56084783
+ -222.11744222 -222.15298595 -221.50976181 -222.21023752 -222.26882294
+ -222.4636217  -220.85065026 -222.6905045  -221.29622961 -221.23224217
+ -221.66386666 -220.83827234 -222.52135077 -220.3652202  -221.17600394
+ -220.92666513 -220.57334362 -222.49443034 -221.44652567 -220.87247252
+ -221.38525166 -222.03668303 -220.88797656 -222.48791256 -221.22063135
+ -222.09726848 -221.08906375 -222.75857089 -220.7523564  -222.27488621
+ -220.97486954 -221.96017536 -222.1377898  -222.23602972 -221.98376394
+ -221.43267439 -222.06912032 -222.27539984 -222.29584893 -222.98309807
+ -223.87218511 -224.25044207 -221.7122006  -221.48955682 -220.94901254
+ -221.27467808]
+2025-06-23 15:08:30 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:08:30 ERROR Can not run the algorithm
+2025-06-23 15:08:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:08:30 ERROR Can not run the algorithm
+2025-06-23 15:08:30 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-23 15:08:30 INFO FeHistory: [204.98621216 197.67786004 194.361855   185.7088251  192.60847223
+ 180.82936404 195.61133663 144.67048344 216.95970766 172.02095172
+ 173.68603679 169.58823447 194.73478673 198.36529459 175.32026525
+ 150.45095051 218.72789961 145.23435642 185.04333012 190.4202173
+ 179.67145471 151.34025152 204.32832595 202.99263752 166.33104324
+ 216.36475128 150.63441999 150.59582285 236.91732664 193.10116886
+ 161.30595605 176.48798025 194.59114829 191.25763276 152.97332523
+ 152.99543556 189.68650397 195.31101051 166.92839224 196.11765514
+ 167.17955918 182.47115202 207.41150871 167.85164742 149.38202561
+ 176.73807542 157.64426388 176.68132692 181.27897549 165.05295667
+ 180.6251102  176.82361044 221.22959836 179.24828659 195.45181676
+ 194.42886042 216.29696106 197.61846597 178.20149802 186.98671416
+ 190.3181715  141.33277659 158.18509922 187.36676031 181.7718304
+ 194.05585697 212.57767229 203.16155141 175.48738161 179.02867318
+ 178.74303947 182.03081439 187.27627332 194.57423859 182.79884934
+ 156.91917001 183.58610257 174.60396273 185.9281817  176.22159417
+ 194.12879728 190.03389915 211.39332065 207.30550334 189.96146337
+ 169.69131365 187.76747725 172.1272931  164.33573823 209.87262612
+ 206.72390237 181.96311488 192.62659426 195.24055464 222.29966554
+ 182.22818943 188.58192886 179.53851163 196.90486538 187.74593139
+ 199.96653027 217.3675783  199.85559566 196.20471655 175.91478114
+ 210.407163   183.56147911 193.91634536 204.17968931 241.97732423
+ 201.39671971 209.40358821 210.40278753 193.48707268 177.44593999
+ 217.79312006 171.0956405  195.25549192 179.43611638 190.94474984
+ 195.93008104 215.68431251 195.34839985 236.27492879 209.74592586
+ 232.38240597 215.92979369 196.22751622 220.20985675 235.7530767
+ 218.69159059 200.8420133  211.09577931 221.06741536 200.40058376
+ 209.03930941 176.16412402 157.67163072 186.67331206 202.34377594
+ 196.07392746 172.32679268 214.6809248  177.06643973 232.72676287
+ 187.01211724 140.72866482 184.52658851 179.57022728 219.45584593
+ 173.59740095 230.69457333 185.70862985 193.20866772 257.19791119
+ 223.91759828 204.23697296 207.51565307 182.44446968 220.99250129
+ 215.95435935 201.49325367 184.562541   236.02857478 201.08911192
+ 191.25991469 246.19963678 190.29901182 197.92497833 225.09057442
+ 200.0810422  255.77345822 189.58119285 188.4146335  216.93955753
+ 240.11263021 209.52239228 197.10398817 180.93934612 222.89739078
+ 153.52372947 201.82796386 179.9709076  218.35165319 269.03010744
+ 204.1946979  209.53918177 193.42041347 214.72944117 187.15108437
+ 215.21382372 199.62959952 193.95344171 215.84833362 194.25502176
+ 164.37079087 204.41295344 172.39696983 215.13114262 195.34698602
+ 203.19609532]
+2025-06-23 15:08:30 INFO Expected Optimum FE: -100
+2025-06-23 15:08:30 INFO Unimodal AOCC mean: 0.1751
+2025-06-23 15:08:30 INFO Multimodal (single component) AOCC mean: 0.1049
+2025-06-23 15:08:30 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 15:08:30 INFO AOCC mean: 0.0933
+2025-06-23 15:08:30 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 15:08:30 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-23 15:08:30 INFO FeHistory: [199.94006286 179.5814448  180.19891424 177.32593473 199.16675778
+ 190.17704789 206.90257698 209.24791871 188.94829195 195.04090996
+ 149.57950958 212.96388948 159.23878835 174.6360395  180.87680814
+ 144.94940994 184.68498504 201.08119034 168.31941636 174.59893965
+ 186.24652461 188.77294703 197.03294493 174.49062704 195.14659523
+ 172.04656332 205.52359406 155.68392013 192.00369077 190.61246811
+ 144.20153831 196.82834138 191.22189283 200.71659314 185.45325958
+ 187.19444528 152.09947036 204.00709584 201.2050495  185.46727302
+ 214.51490593 194.67572262 195.82815723 185.37161662 207.86415327
+ 209.58580813 208.36261444 192.19010786 181.56074579 182.99158743
+ 215.86017268 178.16052436 188.80160973 211.95179981 190.46402241
+ 192.39492138 222.88307866 172.8817489  166.42049888 169.49542856
+ 176.76210874 192.66413713 167.90148152 189.91910198 183.13806371
+ 191.71760173 235.2632858  178.37390092 181.89452169 187.59570235
+ 176.01332891 180.7902194  208.29634077 216.52063583 164.30721754
+ 173.20770005 201.35953843 172.00645255 159.88185572 170.49312836
+ 216.01921076 183.74724113 167.82722529 203.39695448 160.15770491
+ 208.04057155 194.95409897 189.52421661 177.87108416 195.17736064
+ 207.00399584 167.54667181 157.97519514 186.93074918 193.54159041
+ 188.4400343  195.25506369 164.60184834 181.51283054 210.35623207
+ 223.36955037 200.65700144 188.64682513 187.12227137 197.07929507
+ 201.88127169 196.26879529 194.95650102 166.17975362 229.93570172
+ 208.61261169 201.17417589 158.24969212 180.87862285 221.61200348
+ 224.5348088  180.88764834 160.40583164 185.00625822 206.72839425
+ 195.82533711 186.24039283 213.39346792 221.82763806 221.49174015
+ 215.77810955 202.58684001 220.84046277 219.8161335  181.87048575
+ 196.68404942 195.83859692 216.30969638 205.73043637 176.01787097
+ 217.43388909 182.05286271 181.86766098 190.14776699 185.1903011
+ 211.01017348 226.97574554 188.87712423 231.58520988 196.47863524
+ 198.01377424 243.41278631 214.25395965 161.63928442 181.20944922
+ 241.72367605 237.06046344 218.3815233  210.23562839 192.41183576
+ 214.67671313 215.03714457 199.77715399 192.88994877 169.2032872
+ 206.27025632 182.984926   200.72621943 172.43961699 156.38879618
+ 215.83775057 210.58231923 219.82022712 222.47363448 191.63041024
+ 223.12413223 168.90667799 234.2466929  197.65848812 174.85706999
+ 191.32589556 197.83818717 211.02899986 218.16035133 202.65065463
+ 204.51124922 185.98600298 227.06566615 216.81624204 229.4118903
+ 192.49306172 214.16474914 165.05519206 237.18931408 190.08175509
+ 199.0975664  212.58926133 215.12887665 186.00770647 221.08428969
+ 203.92137588 170.97950773 168.07353549 198.05754474 193.18991242
+ 203.34549208]
+2025-06-23 15:08:30 INFO Expected Optimum FE: -100
+2025-06-23 15:08:30 INFO Unimodal AOCC mean: 0.1756
+2025-06-23 15:08:30 INFO Multimodal (single component) AOCC mean: 0.0999
+2025-06-23 15:08:30 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 15:08:30 INFO AOCC mean: 0.0918
+2025-06-23 15:09:16 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1806
+2025-06-23 15:09:16 INFO FeHistory: [-701.2816441  -701.30915884 -701.27506589 ... -701.57250939 -701.5785231
+ -701.55832754]
+2025-06-23 15:09:16 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:09:16 INFO Good algorithm:
+Algorithm Name: MultimodalAdaptiveDifferentialEvolution
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: MultimodalAdaptiveDifferentialEvolution
+# Description: A differential evolution algorithm with adaptive mutation and population diversification strategies for efficient multimodal optimization.
+# Code:
+class MultimodalAdaptiveDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.archive = []  # Archive of unique solutions
+        self.archive_size = 200
+        self.diversity_threshold = 0.1  # Threshold for triggering diversification
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_archive(population, fitness_values)
+            self._update_best(offspring, offspring_fitness)
+
+            if self._check_diversity():
+                self._diversify_population(population)
+
+            # Adaptive F and CR (optional, uncomment for adaptive version)
+            #self.F = self._adapt_F(fitness_values)
+            #self.CR = self._adapt_CR(fitness_values)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_indices(i)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _select_indices(self, i):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return indices
+
+    def _crossover(self, parent, mutant):
+        cross_points = np.random.rand(self.dim) < self.CR
+        child = np.where(cross_points, mutant, parent)
+        return child
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                self.archive.append(sol)
+        self.archive = sorted(self.archive, key=lambda x: x[-1])[:self.archive_size]
+
+    def _check_diversity(self):
+        if len(self.archive) < self.population_size * 0.5:  # Check if archive is sufficiently populated
+            return False
+
+        distances = pdist(np.array([sol[:-1] for sol in self.archive]))
+        avg_distance = np.mean(distances) if len(distances)>0 else 0
+        return avg_distance < self.diversity_threshold * (np.max(self.upper_bounds) - np.min(self.lower_bounds))
+
+    def _diversify_population(self, population):
+        num_to_replace = int(0.2 * self.population_size) # Replace 20%
+        new_solutions = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(num_to_replace, self.dim))
+        population[:num_to_replace] = new_solutions
+
+    #Optional Adaptive Parameter Tuning (Uncomment to use)
+    #def _adapt_F(self, fitness_values):
+    #    #Example: Adjust F based on fitness spread
+    #    spread = np.max(fitness_values) - np.min(fitness_values)
+    #    return max(0.1, min(1.0, self.F * (1 + 0.1 * (spread/np.mean(fitness_values))))
+
+    #def _adapt_CR(self, fitness_values):
+    #    #Example: Adjust CR based on convergence speed
+    #    #Implement your logic to track convergence and adjust CR accordingly
+    #    return self.CR #Keep CR constant for this implementation
+
+
+2025-06-23 15:09:16 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:09:58 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1090
+2025-06-23 15:09:58 INFO FeHistory: [-222.72172705 -222.19644244 -222.34898008 ... -223.71867041 -222.63353311
+ -220.06383472]
+2025-06-23 15:09:58 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:09:58 INFO Good algorithm:
+Algorithm Name: MultimodalAdaptiveDifferentialEvolution
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: MultimodalAdaptiveDifferentialEvolution
+# Description: A differential evolution algorithm with adaptive mutation and population diversification strategies for efficient multimodal optimization.
+# Code:
+class MultimodalAdaptiveDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.archive = []  # Archive of unique solutions
+        self.archive_size = 200
+        self.diversity_threshold = 0.1  # Threshold for triggering diversification
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_archive(population, fitness_values)
+            self._update_best(offspring, offspring_fitness)
+
+            if self._check_diversity():
+                self._diversify_population(population)
+
+            # Adaptive F and CR (optional, uncomment for adaptive version)
+            #self.F = self._adapt_F(fitness_values)
+            #self.CR = self._adapt_CR(fitness_values)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_indices(i)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _select_indices(self, i):
+        indices = np.random.choice(self.population_size, 3, replace=False)
+        while i in indices:
+            indices = np.random.choice(self.population_size, 3, replace=False)
+        return indices
+
+    def _crossover(self, parent, mutant):
+        cross_points = np.random.rand(self.dim) < self.CR
+        child = np.where(cross_points, mutant, parent)
+        return child
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        next_gen = combined_pop[sorted_indices[:self.population_size]]
+        next_fit = combined_fit[sorted_indices[:self.population_size]]
+        return next_gen, next_fit
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                self.archive.append(sol)
+        self.archive = sorted(self.archive, key=lambda x: x[-1])[:self.archive_size]
+
+    def _check_diversity(self):
+        if len(self.archive) < self.population_size * 0.5:  # Check if archive is sufficiently populated
+            return False
+
+        distances = pdist(np.array([sol[:-1] for sol in self.archive]))
+        avg_distance = np.mean(distances) if len(distances)>0 else 0
+        return avg_distance < self.diversity_threshold * (np.max(self.upper_bounds) - np.min(self.lower_bounds))
+
+    def _diversify_population(self, population):
+        num_to_replace = int(0.2 * self.population_size) # Replace 20%
+        new_solutions = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(num_to_replace, self.dim))
+        population[:num_to_replace] = new_solutions
+
+    #Optional Adaptive Parameter Tuning (Uncomment to use)
+    #def _adapt_F(self, fitness_values):
+    #    #Example: Adjust F based on fitness spread
+    #    spread = np.max(fitness_values) - np.min(fitness_values)
+    #    return max(0.1, min(1.0, self.F * (1 + 0.1 * (spread/np.mean(fitness_values))))
+
+    #def _adapt_CR(self, fitness_values):
+    #    #Example: Adjust CR based on convergence speed
+    #    #Implement your logic to track convergence and adjust CR accordingly
+    #    return self.CR #Keep CR constant for this implementation
+
+
+2025-06-23 15:09:58 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:10:54 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 15:10:54 INFO FeHistory: [201.82841064 215.79522897 179.19224653 ...  50.69730993  80.26145146
+  67.03917801]
+2025-06-23 15:10:54 INFO Expected Optimum FE: -100
+2025-06-23 15:10:54 INFO Unimodal AOCC mean: 0.1806
+2025-06-23 15:10:54 INFO Multimodal (single component) AOCC mean: 0.1090
+2025-06-23 15:10:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 15:10:54 INFO AOCC mean: 0.0965
+2025-06-23 15:13:10 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 15:13:10 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 15:16:10 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1777
+2025-06-23 15:16:10 INFO FeHistory: [-701.29601205 -701.28830077 -701.27673692 ... -701.29443402 -701.40854372
+ -701.40218366]
+2025-06-23 15:16:10 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:16:10 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithLevyFlightsAndArchiveImprovements
+import numpy as np
+from scipy.stats import levy, multivariate_normal
+
+# Name: AdaptiveDEwithLevyFlightsAndArchiveImprovements
+# Description: Adaptive Differential Evolution with Levy flights, archive, and dynamic mutation switching for multimodal optimization.
+# Code:
+
+class AdaptiveDEwithLevyFlightsAndArchiveImprovements:
+    """
+    Combines adaptive Differential Evolution, Levy flights, an archive, and dynamically switches between Levy flights and Gaussian mutation based on population diversity.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.beta = 1.5 # Levy flight parameter
+        self.levy_probability = 0.5 # Initial probability of applying levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            #Adaptive Levy Flight Probability
+            std_dev = np.std(population, axis=0).mean()
+            self.levy_probability = max(0.1, min(0.9, 1 - (std_dev / (self.upper_bounds.mean()-self.lower_bounds.mean()))))
+            
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            if np.random.rand() < self.levy_probability:
+                offspring[i] = self._levy_flight_mutation(population[i])
+            else:
+                a, b, c = self._select_three_distinct(population, i)
+                mutant = a + self.F * (b - c)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = self._crossover(population[i], mutant)
+                offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, solution):
+        step = levy.rvs(self.beta, size=self.dim)
+        mutant = solution + 0.1*(self.upper_bounds - self.lower_bounds) * step #Adaptive step size
+        return np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        return combined_pop[sorted_indices[:self.population_size]], combined_fit[sorted_indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+2025-06-23 15:16:10 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:16:44 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1762
+2025-06-23 15:16:44 INFO FeHistory: [-701.2963215  -701.31546975 -701.2920886  ... -701.45123838 -701.45119581
+ -701.44976975]
+2025-06-23 15:16:44 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 15:16:44 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveLevyAndGaussian
+import numpy as np
+import random
+
+# Name: AdaptiveDEwithArchiveLevyAndGaussian
+# Description: Adaptive Differential Evolution using archive, Levy flights, and Gaussian perturbation for multimodal optimization.
+# Code:
+class AdaptiveDEwithArchiveLevyAndGaussian:
+    """
+    Combines Differential Evolution (DE) with an archive, adaptive mutation 
+    using both Levy flights and Gaussian perturbations, for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.sigma = 0.1  # Initial Gaussian perturbation
+        self.archive = []
+        self.levy_prob = 0.2 # Probability of using Levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+            self._adapt_parameters(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_distinct(population, i)
+            if random.random() < self.levy_prob:
+                mutant = self._levy_flight_mutation(a, b, c)
+            else:
+                mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, a, b, c):
+        beta = 1.5
+        u = np.random.normal(0, 1, self.dim)
+        v = np.random.normal(0, 1, self.dim)
+        step = 0.01 * u / (np.abs(v)**(1/beta))
+        return a + step
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        indices = np.argsort(combined_fit)
+        return combined_pop[indices[:self.population_size]], combined_fit[indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _adapt_parameters(self, population, fitness_values):
+        distances = np.linalg.norm(population[:, np.newaxis, :] - population[np.newaxis, :, :], axis=2)
+        avg_distance = np.mean(distances)
+        if avg_distance < 0.1:  # Threshold for clustering
+            self.F *= 0.95
+            self.CR *= 0.95
+            self.sigma *= 1.1  # Increase sigma to enhance exploration
+            self.levy_prob *= 0.9 #Reduce levy probability
+        else:
+            self.sigma *= 0.9  # Reduce sigma for exploitation
+            self.F = min(self.F * 1.05, 1.0)
+            self.CR = min(self.CR * 1.05, 1.0)
+            self.levy_prob = min(self.levy_prob * 1.1, 0.8) # Increase levy probability
+
+
+    def _gaussian_perturbation(self, offspring):
+      noise = np.random.normal(0, self.sigma, size=offspring.shape)
+      perturbed_offspring = np.clip(offspring + noise, self.lower_bounds, self.upper_bounds)
+      return perturbed_offspring
+2025-06-23 15:16:44 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 15:19:08 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1070
+2025-06-23 15:19:08 INFO FeHistory: [-221.74398351 -220.71621219 -221.24539855 ... -222.02182956 -222.46744152
+ -221.11049682]
+2025-06-23 15:19:08 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:19:08 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithLevyFlightsAndArchiveImprovements
+import numpy as np
+from scipy.stats import levy, multivariate_normal
+
+# Name: AdaptiveDEwithLevyFlightsAndArchiveImprovements
+# Description: Adaptive Differential Evolution with Levy flights, archive, and dynamic mutation switching for multimodal optimization.
+# Code:
+
+class AdaptiveDEwithLevyFlightsAndArchiveImprovements:
+    """
+    Combines adaptive Differential Evolution, Levy flights, an archive, and dynamically switches between Levy flights and Gaussian mutation based on population diversity.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.archive = []
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.beta = 1.5 # Levy flight parameter
+        self.levy_probability = 0.5 # Initial probability of applying levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            #Adaptive Levy Flight Probability
+            std_dev = np.std(population, axis=0).mean()
+            self.levy_probability = max(0.1, min(0.9, 1 - (std_dev / (self.upper_bounds.mean()-self.lower_bounds.mean()))))
+            
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            if np.random.rand() < self.levy_probability:
+                offspring[i] = self._levy_flight_mutation(population[i])
+            else:
+                a, b, c = self._select_three_distinct(population, i)
+                mutant = a + self.F * (b - c)
+                mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+                trial = self._crossover(population[i], mutant)
+                offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, solution):
+        step = levy.rvs(self.beta, size=self.dim)
+        mutant = solution + 0.1*(self.upper_bounds - self.lower_bounds) * step #Adaptive step size
+        return np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        sorted_indices = np.argsort(combined_fit)
+        return combined_pop[sorted_indices[:self.population_size]], combined_fit[sorted_indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+2025-06-23 15:19:08 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 15:21:00 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1171
+2025-06-23 15:21:00 INFO FeHistory: [-222.0102916  -222.24171508 -222.47229547 ... -228.01644981 -228.0162466
+ -228.01624996]
+2025-06-23 15:21:00 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 15:21:00 INFO Good algorithm:
+Algorithm Name: AdaptiveDEwithArchiveLevyAndGaussian
+import numpy as np
+import random
+
+# Name: AdaptiveDEwithArchiveLevyAndGaussian
+# Description: Adaptive Differential Evolution using archive, Levy flights, and Gaussian perturbation for multimodal optimization.
+# Code:
+class AdaptiveDEwithArchiveLevyAndGaussian:
+    """
+    Combines Differential Evolution (DE) with an archive, adaptive mutation 
+    using both Levy flights and Gaussian perturbations, for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.archive_size = 200
+        self.F = 0.8  # Differential weight
+        self.CR = 0.9  # Crossover rate
+        self.sigma = 0.1  # Initial Gaussian perturbation
+        self.archive = []
+        self.levy_prob = 0.2 # Probability of using Levy flight mutation
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = self._initialize_population()
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness_values)
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness_values, offspring_fitness)))
+
+            self._update_best(offspring, offspring_fitness)
+            self._adapt_parameters(population, fitness_values)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _initialize_population(self):
+        return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = self._select_three_distinct(population, i)
+            if random.random() < self.levy_prob:
+                mutant = self._levy_flight_mutation(a, b, c)
+            else:
+                mutant = a + self.F * (b - c)
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = self._crossover(population[i], mutant)
+            offspring[i] = trial
+        return offspring
+
+    def _levy_flight_mutation(self, a, b, c):
+        beta = 1.5
+        u = np.random.normal(0, 1, self.dim)
+        v = np.random.normal(0, 1, self.dim)
+        step = 0.01 * u / (np.abs(v)**(1/beta))
+        return a + step
+
+    def _select_three_distinct(self, population, exclude_index):
+        indices = np.random.choice(len(population), 3, replace=False)
+        while exclude_index in indices:
+            indices = np.random.choice(len(population), 3, replace=False)
+        return population[indices[0]], population[indices[1]], population[indices[2]]
+
+    def _crossover(self, x, v):
+        u = np.copy(x)
+        mask = np.random.rand(self.dim) < self.CR
+        u[mask] = v[mask]
+        return u
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+        combined_pop = np.vstack((population, offspring))
+        combined_fit = np.concatenate((fitness_values, offspring_fitness))
+        indices = np.argsort(combined_fit)
+        return combined_pop[indices[:self.population_size]], combined_fit[indices[:self.population_size]]
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+    def _update_archive(self, population, fitness_values):
+        combined = np.column_stack((population, fitness_values))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+        new_archive.sort(key=lambda x: x[-1])
+        return np.array(new_archive[:self.archive_size])
+
+    def _adapt_parameters(self, population, fitness_values):
+        distances = np.linalg.norm(population[:, np.newaxis, :] - population[np.newaxis, :, :], axis=2)
+        avg_distance = np.mean(distances)
+        if avg_distance < 0.1:  # Threshold for clustering
+            self.F *= 0.95
+            self.CR *= 0.95
+            self.sigma *= 1.1  # Increase sigma to enhance exploration
+            self.levy_prob *= 0.9 #Reduce levy probability
+        else:
+            self.sigma *= 0.9  # Reduce sigma for exploitation
+            self.F = min(self.F * 1.05, 1.0)
+            self.CR = min(self.CR * 1.05, 1.0)
+            self.levy_prob = min(self.levy_prob * 1.1, 0.8) # Increase levy probability
+
+
+    def _gaussian_perturbation(self, offspring):
+      noise = np.random.normal(0, self.sigma, size=offspring.shape)
+      perturbed_offspring = np.clip(offspring + noise, self.lower_bounds, self.upper_bounds)
+      return perturbed_offspring
+2025-06-23 15:21:00 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------

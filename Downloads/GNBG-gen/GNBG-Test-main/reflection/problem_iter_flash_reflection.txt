@@ -1,0 +1,11 @@
+**Analysis:**
+Comparing (AdaptiveIslandDEPlus) vs (AdaptiveIslandDE), we see AdaptiveIslandDEPlus incorporates adaptive crossover rate adjustment, which is missing in AdaptiveIslandDE. AdaptiveIslandDE includes restart lower/upper bound that give better performance.
+
+Comparing (AdaptiveIslandDEPlus) vs (AgileIslandDifferentialEvolution),  AdaptiveIslandDEPlus uses immigrants index selection is more efficient than random. AgileIslandDifferentialEvolution uses a simpler random migration, without a selection and local search on all immigrants, which can be less effective.
+
+Comparing (AgileIslandDifferentialEvolution) vs (AdaptiveIslandDE),  AgileIslandDifferentialEvolution and AdaptiveIslandDE both perform Local search only during migrate which is a better option. But AgileIslandDifferentialEvolution has random migration to dest island, while AdaptiveIslandDE restart mechanism from range [restart_lower_bound, restart_upper_bound], which is a better option.
+
+Overall: Adaptive crossover adjustment during DE, as well as local search performed during migration appear to be crucial. Migration strategies should carefully selected individuals instead of randomly to save the cost. Restart mechanisms could also improve the performance since these function are deceptive and multimodal.
+
+**Experience:**
+For deceptive landscapes, prioritize algorithms with adaptive parameter control (e.g., crossover rate), selective migration of promising individuals with local search, and effective restart mechanisms. Island models can be effective at aggressive exploration of multimodal landscapes.

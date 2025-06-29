@@ -1,0 +1,2316 @@
+2025-06-25 07:55:27 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:55:27 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:56:13 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.6970
+2025-06-25 07:56:13 INFO FeHistory: [129472.65660253 136013.26229323 148716.85713128 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-25 07:56:13 INFO Expected Optimum FE: -5000
+2025-06-25 07:56:13 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-25 07:56:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:56:14 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:56:14 INFO FeHistory: [113300.09070118 112218.51609542 137311.089231   ... 124398.64778708
+ 157370.72611463 210741.61381543]
+2025-06-25 07:56:14 INFO Expected Optimum FE: -5000
+2025-06-25 07:56:14 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:56:49 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:56:49 INFO FeHistory: [118518.02973108  87822.35935537  74402.30169896 ...  -4221.54127188
+  -4221.54127188  -4221.54127188]
+2025-06-25 07:56:49 INFO Expected Optimum FE: -5000
+2025-06-25 07:56:49 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:56:52 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:56:52 INFO FeHistory: [130400.06389687 168027.39157653 227666.56098358 ...   -918.75389237
+   9706.94717184  40265.33386526]
+2025-06-25 07:56:52 INFO Expected Optimum FE: -5000
+2025-06-25 07:56:52 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:57:27 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:57:27 INFO FeHistory: [158532.8707639  142964.4826356  186770.33988666 ...  -4469.19279397
+  -4469.19279397  -4469.19279397]
+2025-06-25 07:57:27 INFO Expected Optimum FE: -5000
+2025-06-25 07:57:27 INFO Unimodal AOCC mean: nan
+2025-06-25 07:57:27 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:57:27 INFO Multimodal (multiple components) AOCC mean: 0.2323
+2025-06-25 07:57:27 INFO AOCC mean: 0.2323
+2025-06-25 07:57:27 INFO Weighed AOCC mean: nan
+2025-06-25 07:57:27 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:57:30 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:57:30 INFO FeHistory: [154213.90327938 279233.28979365 172519.71413763 ...  34267.61697479
+  34139.11624998  75904.31427887]
+2025-06-25 07:57:30 INFO Expected Optimum FE: -5000
+2025-06-25 07:57:30 INFO Unimodal AOCC mean: nan
+2025-06-25 07:57:30 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:57:30 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:57:30 INFO AOCC mean: 0.0000
+2025-06-25 07:57:30 INFO Weighed AOCC mean: nan
+2025-06-25 07:57:30 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:58:12 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:58:12 INFO FeHistory: [120087.60429322 112038.07198564 112251.84905833 ...  -4399.9
+  -4399.9         -4399.9       ]
+2025-06-25 07:58:12 INFO Expected Optimum FE: -5000
+2025-06-25 07:58:12 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:58:52 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:58:52 INFO FeHistory: [107809.23697708 176902.58852213  97739.45463865 ...  -4399.89999958
+  -4399.89999933  -4399.89999877]
+2025-06-25 07:58:52 INFO Expected Optimum FE: -5000
+2025-06-25 07:58:52 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:59:31 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.2196
+2025-06-25 07:59:31 INFO FeHistory: [113343.20327968 106558.94289006 147488.39356796 ...  -4999.99956257
+  -4999.99938088  -4999.99959841]
+2025-06-25 07:59:31 INFO Expected Optimum FE: -5000
+2025-06-25 07:59:31 INFO Good algorithm:
+Algorithm Name: EnhancedArchiveGuidedDE
+import numpy as np
+import random
+
+class EnhancedArchiveGuidedDE: #aocc 0.15
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 population_size_factor: float = 8.82865217019506, archive_size: int = 165.22481375900153, initial_F_scale: float = 0.3544373580018585):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = int(population_size_factor * self.dim)  # common heuristic
+        self.archive_size = archive_size
+        self.archive = []
+        self.population = None
+        self.F_scale = initial_F_scale  # initial scaling factor
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8,
+                 F_scale_variation: float = 0.3, archive_update_threshold: float = 0.8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness)]
+        self.best_fitness_overall = np.min(fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(self.population, fitness, F_scale_variation)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update archive
+            self.update_archive(offspring, offspring_fitness, archive_update_threshold)
+
+            # Select best solutions for next generation
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness, offspring_fitness))
+            indices = np.argsort(combined_fitness)
+            self.population = combined_population[indices[:self.population_size]]
+            fitness = combined_fitness[indices[:self.population_size]]
+
+            # Update best solution
+            self.best_solution_overall = self.population[np.argmin(fitness)]
+            self.best_fitness_overall = np.min(fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'archive_size': len(self.archive)
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, population, fitness, F_scale_variation):
+        offspring = np.zeros((self.population_size, self.dim))
+        # Adaptive scaling factor
+        self.F_scale = 0.5 + F_scale_variation * np.random.rand()  # scale factor with slight variation
+
+        for i in range(self.population_size):
+            # Select pbest from archive (if available)
+            if self.archive:
+                pbest_index = np.random.choice(len(self.archive))
+                pbest = self.archive[pbest_index][0]
+            else:
+                pbest = population[np.argmin(fitness)]
+
+            a, b, c = random.sample(range(self.population_size), 3)
+            while a == i or b == i or c == i:
+                a, b, c = random.sample(range(self.population_size), 3)
+
+            offspring[i] = population[i] + self.F_scale * (pbest - population[i] + population[a] - population[b])
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds)  # Boundary handling
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness, archive_update_threshold):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                # Prioritize diversity in archive
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1] or len(self.archive) < self.archive_size * archive_update_threshold:
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+2025-06-25 07:59:31 INFO Unimodal AOCC mean: nan
+2025-06-25 07:59:31 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:59:31 INFO Multimodal (multiple components) AOCC mean: 0.0732
+2025-06-25 07:59:31 INFO AOCC mean: 0.0732
+2025-06-25 07:59:31 INFO Weighed AOCC mean: nan
+2025-06-25 07:59:40 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:59:40 INFO FeHistory: [ 99801.11403335 221423.01636917 210586.36658093 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-25 07:59:40 INFO Expected Optimum FE: -5000
+2025-06-25 07:59:40 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:01:48 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:01:48 INFO FeHistory: [205532.01374763 291925.67974145 250581.90317512 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-25 08:01:48 INFO Expected Optimum FE: -5000
+2025-06-25 08:01:48 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:03:55 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:03:55 INFO FeHistory: [132519.40226816 223810.40306824 196200.34364723 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-25 08:03:55 INFO Expected Optimum FE: -5000
+2025-06-25 08:03:55 INFO Unimodal AOCC mean: nan
+2025-06-25 08:03:55 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:03:55 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:03:55 INFO AOCC mean: 0.0000
+2025-06-25 08:03:55 INFO Weighed AOCC mean: nan
+2025-06-25 08:03:55 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:03:55 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 08:03:58 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:03:58 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:03:58 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:03:58 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 08:04:01 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:01 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:04:01 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:01 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 08:04:04 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:04 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:04:04 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:04 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 08:04:07 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:07 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:04:07 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:07 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 08:04:10 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:10 INFO Using LLM api key #AIzaSyCbA5uIXRIIWnTv7HCUGX75WoYJ4PeZWd0)
+2025-06-25 08:04:10 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:13 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_with_hs_single_func.py", line 189, in initialize_single
+    new_individual = chosen_llm.sample_solution(session_messages, role_index=role_index)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 106, in sample_solution
+    message = self.query(session_messages)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea/llm.py", line 288, in query
+    response = chat_session.send_message(last["content"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 578, in send_message
+    response = self.model.generate_content(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/generative_models.py", line 317, in generate_content
+    self._client = client.get_default_generative_client()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 360, in get_default_generative_client
+    return _client_manager.get_default_client("generative")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 289, in get_default_client
+    client = self.make_client(name)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 249, in make_client
+    raise e
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/generativeai/client.py", line 241, in make_client
+    client = cls(**self.client_config)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 667, in __init__
+    self._transport = transport_init(
+                      ^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/grpc.py", line 235, in __init__
+    super().__init__(
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/transports/base.py", line 100, in __init__
+    credentials, _ = google.auth.default(
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/miniconda3/envs/eoh/lib/python3.12/site-packages/google/auth/_default.py", line 685, in default
+    raise exceptions.DefaultCredentialsError(_CLOUD_SDK_MISSING_CREDENTIALS)
+google.auth.exceptions.DefaultCredentialsError: 
+  No API_KEY or ADC found. Please either:
+    - Set the `GOOGLE_API_KEY` environment variable.
+    - Manually pass the key with `genai.configure(api_key=my_api_key)`.
+    - Or set up Application Default Credentials, see https://ai.google.dev/gemini-api/docs/oauth for more information.
+.
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Run function 16 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 18 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:04:13 ERROR Can not run the algorithm
+2025-06-25 08:04:13 INFO Run function 19 complete. FEHistory len: 0, AOCC: 0.0000
+2025-06-25 08:04:13 INFO FeHistory: []
+2025-06-25 08:04:13 INFO Expected Optimum FE: -5000
+2025-06-25 08:04:13 INFO Unimodal AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:04:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO AOCC mean: 0.0000
+2025-06-25 08:04:13 INFO Weighed AOCC mean: nan
+2025-06-25 08:05:38 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:05:38 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:05:38 ERROR Can not run the algorithm
+2025-06-25 08:05:39 INFO Run function 16 complete. FEHistory len: 151, AOCC: 0.0000
+2025-06-25 08:05:39 INFO FeHistory: [118780.42749017 158413.8494419  117452.14365216 199369.03939208
+ 124692.70041988 147408.34664725 118496.6339474  113954.98901994
+ 153353.15367499 147776.48303676 135172.73230304 132562.23664666
+  92317.21044531 151010.478588    98980.18503605 137466.29799785
+ 152634.86089066 120577.65883149 126691.40992946 106902.17574324
+ 110293.8828767  128865.67128939 111257.58953442 171374.93205768
+ 111890.10105689 116658.92628728 129797.70682025 119024.02877425
+ 143055.62646192 144198.16756554 128185.14087131 173120.5529281
+ 121601.5305167   73381.1289353  135221.64812362 123393.85588916
+ 154150.46104699 143501.92791363 111848.78653837 121804.69424527
+ 153742.10812565 140806.42559957 125633.61471302  89651.21523242
+ 117519.53297055 118810.66857191 158452.07664074  83578.1137918
+ 111080.3052662  160985.93407733 170570.4244027  157600.29634726
+ 143782.2315477  160821.54997683 106605.2102804   89378.70778346
+ 193679.71349412 120387.32978222  84588.45234861 107087.20970252
+ 129251.72778656  97317.51496742  96553.65073516 144471.94949546
+ 120091.84000252 171993.58855985 108067.50764387 100809.81010462
+ 140147.07685376  96007.89668342 151847.02906052 122835.47119648
+ 144486.48316925 154885.01147803 157705.4889367  144541.46842926
+ 148135.28392887 154687.13542026 144721.28023334 153833.68820259
+ 116316.65890986 145985.25883443 114146.08206825 146776.69038136
+ 124045.94127234 109697.98970596 165809.7532545  147244.67270928
+ 114594.46923496 151167.58134623 120646.91689268  99564.68346483
+ 103490.05519827 120603.10805163 127056.10572745 138082.67938649
+  74005.14260694 114555.34287415 130043.30775974 129908.62478768
+  83807.6491617  255317.20528996 209999.83771166 180442.47396588
+ 203754.12207643 210842.01964478 190945.44969088 176445.25184693
+ 168790.4018666  157658.40894478 169598.44107102 222022.99492978
+ 161090.1664228  152394.41739684 178444.08937321 164138.33228698
+ 191370.68162383 207370.19292099 248221.18091676 214609.8732168
+ 149183.70751641 195540.58682948 194186.3768798  192340.26568212
+ 125836.69611574 193362.22812055 157257.97186014 127119.80455826
+ 175244.52247274 179102.29149227 143270.06264376 186993.94050405
+ 176944.30148067 171932.14032467 164967.90512243 192322.66271231
+ 173365.95735909 207800.82193599 195116.95781466 218317.04474645
+ 164626.2240032  142942.41110063 202420.72005459 157294.97820138
+ 143436.82575541 142637.21759881 195602.28132024 113022.8791206
+ 181836.70499318 213225.38374816 233739.68176797]
+2025-06-25 08:05:39 INFO Expected Optimum FE: -5000
+2025-06-25 08:05:39 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:05:39 ERROR Can not run the algorithm
+2025-06-25 08:05:39 INFO Run function 18 complete. FEHistory len: 151, AOCC: 0.0000
+2025-06-25 08:05:39 INFO FeHistory: [161394.03522962 102110.09610451 165925.83668963 127567.99221631
+ 161878.89608448 152115.71945582 219658.47747941 188155.180527
+ 126723.42644859 234522.0844807  166927.64783243 130930.08632754
+ 182588.51186793 182369.4938605  171956.6595584  126336.58105532
+ 139124.51124274 187411.74197091  95426.48180546 151226.99688454
+ 199729.10474237 111599.55233605 205147.05400843 286201.36259039
+ 123434.92420514 128015.05101413  85216.25710525 213975.86096422
+ 187587.90535205 217307.63094478 149092.34427335 189142.41881767
+ 185913.05183905 175583.41412398 144934.26232084  89792.2396645
+ 175662.00489545 155184.46043908 150050.35287493 155822.06942677
+ 141113.010815   134553.68284824  41143.52930298  95067.70909597
+ 167752.72873201 168926.98304678 166629.02691128 183790.35105896
+ 127573.33923466 110941.27901321 121052.05084894 138660.06622489
+ 160190.43755726 128258.21409424  84031.83000157 183116.61374072
+ 130787.92989799 125268.80247634 178522.79611998 121784.92436499
+ 109013.26522321 182823.11836169 126619.58221815 194995.78700501
+ 164729.18137262 151686.13068888 207676.79482391 174168.04267349
+ 170377.04532951 233998.76111004 166013.19250716 126433.59500774
+ 149071.45440915 115558.6413014  105346.0062104  168150.62648357
+  88950.22758298 222330.17942744 167212.74779629 131628.7963472
+ 173184.08285603 125579.73063037 199928.74383175 167642.43644895
+ 169029.32842267 166236.03973964 162996.02861834 160938.25252223
+ 268210.55769221  98711.69824088 114675.94144678 166377.85936661
+ 115338.74986865 155756.36350085 145434.85790681 140756.37629039
+ 190551.75018047 154158.52658399 196904.56239092 120510.07863113
+ 147782.05340501 191467.15678035 199343.6874755  387352.48379264
+ 180880.40738265 243740.27178138 174601.60853305 195359.52832717
+ 248940.26182875 180337.86593808  69285.11543263 227176.47223889
+ 222446.29974684 272448.30648559 172036.380241   190108.12974048
+ 162979.71920216 184229.59618974 217973.18702117 184226.2032635
+ 154651.50308791 237586.00241231 164311.71954389 254695.35881414
+ 142964.57827564 236237.34785256 209826.9858601  250071.51821121
+ 255457.92841934 256898.81845337 257732.57546027 232393.34979016
+ 224255.30943722 258711.97527972 160760.56173442 160583.74360941
+ 216252.22806507 153748.86056205 254371.2585895  158088.19793264
+ 176518.26405658 273657.4265339  131888.31058246 218796.23869305
+ 250884.79961696 218090.73614398 142599.50045135 217982.98437525
+ 167935.82522493 202662.3326828  250633.32430035]
+2025-06-25 08:05:39 INFO Expected Optimum FE: -5000
+2025-06-25 08:05:39 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:05:39 ERROR Can not run the algorithm
+2025-06-25 08:05:40 INFO Run function 19 complete. FEHistory len: 151, AOCC: 0.0000
+2025-06-25 08:05:40 INFO FeHistory: [215915.36793758 129156.53186426 208681.41241778 151483.16346846
+ 293122.89859958 160206.85684624 156300.30909758 192657.41650065
+ 153727.06921792 123345.86851532 158918.37290481  65809.87158117
+  78560.52792937 202801.79264624 149622.12542767 221417.03166764
+ 137928.54036164 226579.08435118 152269.52818195 193180.46149147
+  97957.70282223 198106.22655098 118470.98831005 149820.58522501
+ 197494.97817571 132304.88053165 247745.65542745 172739.53181687
+ 146775.99370647  88588.77460628 295177.59170574 180322.02782451
+ 170205.26134951 135502.73262771 220638.77420139 161662.93142308
+ 180085.20652257  96038.36886857 120544.15738597 187469.38198243
+ 162321.33445161 240843.56535308 190818.6441637  145693.43349899
+ 138720.11505309 156233.90723702 195527.47168484 215616.52209756
+ 147213.96940029  98636.92707989 188966.2636773  128863.49089838
+ 121338.48276027 175235.77318902 202429.358577   227565.18213705
+ 167285.66486024 126702.39538381 162876.05777934 175516.59530483
+ 129283.02827909 175344.75231067 167667.74416626 269821.81190288
+ 201995.11579413 122352.93698877 237843.82642546 180326.82536298
+ 235699.20817716 197091.68187494 125740.32506839 173697.85039393
+ 158190.12010401 159837.46441634 139399.19669612 133976.31892299
+ 118190.99093197 271934.63810389 140045.81077479 216279.33131987
+  64748.44021736 272304.73561724 130643.1046977  259778.17471642
+ 159453.86689018 264406.27351708 220075.2373716  142983.32381551
+ 243023.88305607 172050.30351096 139110.05137627 145113.41905594
+ 304477.93981358 177638.46738679 199558.43537917 210508.08932272
+ 149146.12962398 207432.92866107 162794.97870446 164159.03819717
+  78031.2475145  298716.34088496 219645.68070157 294866.94432531
+ 280772.85700087 349227.10695211 190704.71666046 200420.76753919
+ 178627.60547087 260083.81512927 152252.1489027  245491.76744408
+ 151766.82872079 154120.34372304 224458.25963672 241960.6347711
+ 269881.0951513  212137.9894939  223074.43705043 219426.22415436
+ 230185.99421943 216265.37601006 238576.37562334 402180.57902785
+ 331993.14093701 234892.9110818  168680.82163355 236668.17299175
+ 285150.34232699 145436.67823676 181685.48172823 280421.36175298
+ 260395.7851802  120001.2500565  384259.83441744 253461.40065237
+ 231831.14937109 259151.54512308 212882.57425622 402813.92650629
+ 172234.86029223 286710.07884442 205164.81643066 185807.17511206
+ 261739.01013333 220583.44565328 250639.93932188 346946.34982164
+ 321205.43893872 146117.76930222 185616.67887139]
+2025-06-25 08:05:40 INFO Expected Optimum FE: -5000
+2025-06-25 08:05:40 INFO Unimodal AOCC mean: nan
+2025-06-25 08:05:40 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:05:40 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:05:40 INFO AOCC mean: 0.0000
+2025-06-25 08:05:40 INFO Weighed AOCC mean: nan
+2025-06-25 08:05:40 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:06:20 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:06:20 INFO FeHistory: [117296.03060184 130422.76940082 162430.01089648 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-25 08:06:20 INFO Expected Optimum FE: -5000
+2025-06-25 08:06:20 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:06:20 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:06:20 INFO FeHistory: [118942.66242276 112125.40844374  89659.63756734 ... 110706.29832457
+ 116326.97232152  75395.8041993 ]
+2025-06-25 08:06:20 INFO Expected Optimum FE: -5000
+2025-06-25 08:06:20 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:07:02 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:07:02 INFO FeHistory: [114522.73612288 142246.40001239 188610.73495924 ... 100924.21394587
+ 132503.35084272  63587.62562651]
+2025-06-25 08:07:02 INFO Expected Optimum FE: -5000
+2025-06-25 08:07:02 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:07:02 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.5939
+2025-06-25 08:07:02 INFO FeHistory: [150873.66864423 136744.60128441 175584.97463072 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-25 08:07:02 INFO Expected Optimum FE: -5000
+2025-06-25 08:07:02 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridDE
+import numpy as np
+import random
+
+# Name: AdaptiveHybridDE
+# Description: A differential evolution strategy that combines archive-guidance, population diversity, and adaptive mutation.
+# Code:
+class AdaptiveHybridDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 50
+        self.archive_size = 20
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        self.archive = []
+        self.archive_fitness = []
+        self.CR = 0.7  # Crossover rate
+        self.F = 0.5   # Mutation factor
+        self.F_adaptive_rate = 0.1
+        self.CR_adaptive_rate = 0.1
+        self.stagnation_counter = 0
+        self.stagnation_threshold = 5000 # Adjust this
+        self.restart_percentage = 0.2
+        self.archive_probability = 0.2  # Probability of using archive member during mutation
+        self.success_F = []
+        self.success_CR = []
+        self.memory_size = 10 #Keep track of 10 past mutations
+        self.archive_selection_pressure = 2 #Selection pressure from tournamanent when choosing from archive
+        self.min_archive_size = 5
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+        self.archive = self.population.copy() #Initialize the archive from the start, keep it simple
+        self.archive_fitness = fitness_values.copy()
+
+        while self.eval_count < self.budget:
+            for i in range(self.population_size):
+                # Mutation
+                if random.random() < self.archive_probability and len(self.archive) > self.min_archive_size:
+                    # Mutate with archive
+                    idxs = np.random.choice(len(self.population), 2, replace=False)  # Select two random population members
+                    x1, x2 = self.population[idxs[0]], self.population[idxs[1]]
+
+                    # Tournament selection from archive
+                    archive_idx = self.tournament_selection(self.archive_fitness, k=self.archive_selection_pressure)
+                    x_archive = self.archive[archive_idx]
+
+                    mutant = self.population[i] + self.F * (x_archive - self.population[i]) + self.F * (x1 - x2)
+                else:
+                    # Classic DE mutation
+                    idxs = np.random.choice(len(self.population), 3, replace=False)  # Select three random, distinct indices
+                    x1, x2, x3 = self.population[idxs[0]], self.population[idxs[1]], self.population[idxs[2]]
+                    mutant = x1 + self.F * (x2 - x3)  # DE/rand/1 mutation
+
+                # Crossover
+                crossover_mask = np.random.rand(self.dim) < self.CR
+                trial_vector = np.where(crossover_mask, mutant, self.population[i]) #Binomial Crossover
+
+                # Boundary handling
+                trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds)
+
+                # Evaluation
+                trial_fitness = objective_function(np.array([trial_vector]))[0]
+                self.eval_count += 1
+
+                # Selection
+                if trial_fitness < fitness_values[i]:
+                    #Success! Update success history for F and CR
+                    self.success_F.append(self.F)
+                    self.success_CR.append(self.CR)
+
+                    fitness_values[i] = trial_fitness
+                    self.population[i] = trial_vector
+                    # Update archive (replace worst)
+                    if trial_fitness < self.archive_fitness[np.argmax(self.archive_fitness)]:
+                         self.archive[np.argmax(self.archive_fitness)] = trial_vector
+                         self.archive_fitness[np.argmax(self.archive_fitness)] = trial_fitness
+
+                    # Update best solution
+                    if trial_fitness < self.best_fitness_overall:
+                        self.best_fitness_overall = trial_fitness
+                        self.best_solution_overall = trial_vector
+                else:
+                    # Add to archive if not already there and archive not full
+                    if trial_fitness > self.archive_fitness.min() and len(self.archive) < self.archive_size:
+                        self.archive = np.vstack((self.archive, trial_vector))
+                        self.archive_fitness = np.append(self.archive_fitness, trial_fitness)
+                    elif trial_fitness > self.archive_fitness.min():
+                        #replace the worst in the archive
+                        self.archive[np.argmin(self.archive_fitness)] = trial_vector
+                        self.archive_fitness[np.argmin(self.archive_fitness)] = trial_fitness
+
+            #Adapt CR/F
+            self.adapt_parameters()
+
+            # Stagnation check and restart
+            self.stagnation_counter += 1
+            if self.stagnation_counter > self.stagnation_threshold:
+                self.restart_population(objective_function, self.restart_percentage)
+                self.stagnation_counter = 0
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+        winner_index = tournament[np.argmin(fitnesses[tournament])]
+        return winner_index
+
+    def adapt_parameters(self):
+        #Adapt Mutation Factor F
+        if(len(self.success_F) > self.memory_size):
+            self.success_F = self.success_F[-self.memory_size:] #Keep only the past
+        if len(self.success_F) > 0:
+            mean_F = np.mean(self.success_F)
+            self.F = 0.9 * self.F + 0.1 * mean_F #Learning and inertia
+        else:
+            self.F = 0.9*self.F + 0.1 * np.random.uniform(0.4, 1.0) #Random Sample if there were no successes
+
+        #Adapt Crossover Rate CR
+        if(len(self.success_CR) > self.memory_size):
+            self.success_CR = self.success_CR[-self.memory_size:] #Keep only the past
+        if len(self.success_CR) > 0:
+            mean_CR = np.mean(self.success_CR)
+            self.CR = 0.9 * self.CR + 0.1 * mean_CR #Learning and inertia
+        else:
+            self.CR = 0.9*self.CR + 0.1 * np.random.random()  #Random Sample if there were no successes
+
+
+    def restart_population(self, objective_function, restart_percentage):
+        num_to_restart = int(self.population_size * restart_percentage)
+        indices_to_restart = np.random.choice(self.population_size, num_to_restart, replace=False)
+        self.population[indices_to_restart] = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(num_to_restart, self.dim))
+        new_fitness_values = objective_function(self.population[indices_to_restart])
+        self.eval_count += num_to_restart
+        # Update fitness values in original array
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+        fitness_values[indices_to_restart] = new_fitness_values #Only updates the restarted ones
+        self.archive = self.population.copy() #Reinitialize the archive on restart
+        self.archive_fitness = fitness_values.copy()#Restart the archive
+
+        if fitness_values.min() < self.best_fitness_overall: #If the new value is better
+            self.best_solution_overall = self.population[fitness_values.argmin()] #Use that index to grab solution
+            self.best_fitness_overall = fitness_values.min() #Found better fitness
+
+2025-06-25 08:07:02 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:07:42 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:07:42 INFO FeHistory: [107619.28176708 143197.38133522 146631.49500086 ...  82697.96433563
+ 149334.54840545  87003.13893275]
+2025-06-25 08:07:42 INFO Expected Optimum FE: -5000
+2025-06-25 08:07:42 INFO Unimodal AOCC mean: nan
+2025-06-25 08:07:42 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:07:42 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:07:42 INFO AOCC mean: 0.0000
+2025-06-25 08:07:42 INFO Weighed AOCC mean: nan
+2025-06-25 08:07:42 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:07:43 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:07:43 INFO FeHistory: [162863.95722349 148884.78125237 154287.82540493 ...  -4317.8998738
+  -4317.89962562  -4317.89984567]
+2025-06-25 08:07:43 INFO Expected Optimum FE: -5000
+2025-06-25 08:07:43 INFO Unimodal AOCC mean: nan
+2025-06-25 08:07:43 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:07:43 INFO Multimodal (multiple components) AOCC mean: 0.1980
+2025-06-25 08:07:43 INFO AOCC mean: 0.1980
+2025-06-25 08:07:43 INFO Weighed AOCC mean: nan
+2025-06-25 08:07:43 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:08:26 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:08:26 INFO FeHistory: [132612.60111083 153743.55275711 144338.06702447 ...  -4466.45296771
+  -4465.81169582  -4466.25734284]
+2025-06-25 08:08:26 INFO Expected Optimum FE: -5000
+2025-06-25 08:08:26 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:08:26 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:08:26 INFO FeHistory: [116085.13598305 141687.72747247 171701.82840369 ...   5034.17173788
+   4216.22563882   5983.48320995]
+2025-06-25 08:08:26 INFO Expected Optimum FE: -5000
+2025-06-25 08:08:26 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:09:07 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:09:07 INFO FeHistory: [141212.18528971 144213.5354747  171530.44159305 ...  26727.53288479
+  33213.60219748  30153.43329509]
+2025-06-25 08:09:07 INFO Expected Optimum FE: -5000
+2025-06-25 08:09:07 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:09:10 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:09:10 INFO FeHistory: [184382.63997353 148601.62959103 140752.08476337 ...   8126.4762676
+   2658.93044736   5631.96050389]
+2025-06-25 08:09:10 INFO Expected Optimum FE: -5000
+2025-06-25 08:09:10 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:09:47 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:09:47 INFO FeHistory: [181423.98915105 154172.08502151 114374.78993717 ...  80861.74747891
+ 118411.38245623  37998.55832864]
+2025-06-25 08:09:47 INFO Expected Optimum FE: -5000
+2025-06-25 08:09:47 INFO Unimodal AOCC mean: nan
+2025-06-25 08:09:47 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:09:47 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:09:47 INFO AOCC mean: 0.0000
+2025-06-25 08:09:47 INFO Weighed AOCC mean: nan
+2025-06-25 08:09:47 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:09:52 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:09:52 INFO FeHistory: [177008.03681217 187605.75517184 189368.78428044 ...  36009.12281091
+ 154218.6847136   61510.0947493 ]
+2025-06-25 08:09:52 INFO Expected Optimum FE: -5000
+2025-06-25 08:09:52 INFO Unimodal AOCC mean: nan
+2025-06-25 08:09:52 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:09:52 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:09:52 INFO AOCC mean: 0.0000
+2025-06-25 08:09:52 INFO Weighed AOCC mean: nan
+2025-06-25 08:09:52 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:10:28 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:10:28 INFO FeHistory: [161206.65986915 179296.63708097 125819.71280475 ...  -4315.44157516
+  -4315.47900986  -4315.1577355 ]
+2025-06-25 08:10:28 INFO Expected Optimum FE: -5000
+2025-06-25 08:10:28 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:10:35 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:10:35 INFO FeHistory: [123823.98919734 112327.75575974 121724.8025821  ...  -4419.88207569
+  -4419.8851003   -4419.88895019]
+2025-06-25 08:10:35 INFO Expected Optimum FE: -5000
+2025-06-25 08:10:35 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:11:07 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:11:07 INFO FeHistory: [188474.44990936 125853.78092143 146002.94664499 ...  -4465.34639822
+  -4462.92599598  -4463.59727875]
+2025-06-25 08:11:07 INFO Expected Optimum FE: -5000
+2025-06-25 08:11:07 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:11:15 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:11:15 INFO FeHistory: [229360.67373987 130415.60073102  91418.52474107 ...  -4399.84032265
+  -4399.80814104  -4399.79046668]
+2025-06-25 08:11:15 INFO Expected Optimum FE: -5000
+2025-06-25 08:11:15 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:11:47 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:11:47 INFO FeHistory: [159395.97270757 181875.07684154 136917.86020142 ...  -4456.33019698
+  -4444.91702599  -4452.25652601]
+2025-06-25 08:11:47 INFO Expected Optimum FE: -5000
+2025-06-25 08:11:47 INFO Unimodal AOCC mean: nan
+2025-06-25 08:11:47 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:11:47 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:11:47 INFO AOCC mean: 0.0000
+2025-06-25 08:11:47 INFO Weighed AOCC mean: nan
+2025-06-25 08:11:47 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:11:57 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:11:57 INFO FeHistory: [223408.84940971 138537.87491823 155318.06078387 ...  -4307.61427261
+  -4301.539956    -4311.01239518]
+2025-06-25 08:11:57 INFO Expected Optimum FE: -5000
+2025-06-25 08:11:57 INFO Unimodal AOCC mean: nan
+2025-06-25 08:11:57 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:11:57 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:11:57 INFO AOCC mean: 0.0000
+2025-06-25 08:11:57 INFO Weighed AOCC mean: nan
+2025-06-25 08:12:30 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:12:30 INFO FeHistory: [ 98005.16610471  79613.73009227 116281.76654651 ...  -4470.26693852
+  -4470.2648593   -4470.26562271]
+2025-06-25 08:12:30 INFO Expected Optimum FE: -5000
+2025-06-25 08:12:30 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:13:09 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:13:09 INFO FeHistory: [151019.44367337 150781.18245598 148408.47537533 ...  -4262.41209059
+  -4262.41209059  -4262.41209059]
+2025-06-25 08:13:09 INFO Expected Optimum FE: -5000
+2025-06-25 08:13:09 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:13:49 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:13:49 INFO FeHistory: [118600.06627508 105650.88325499  94514.26263815 ...  13223.41289811
+  18952.93890771   7414.17150154]
+2025-06-25 08:13:49 INFO Expected Optimum FE: -5000
+2025-06-25 08:13:49 INFO Unimodal AOCC mean: nan
+2025-06-25 08:13:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:13:49 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:13:49 INFO AOCC mean: 0.0000
+2025-06-25 08:13:49 INFO Weighed AOCC mean: nan
+2025-06-25 08:14:09 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:14:09 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:14:09 ERROR Can not run the algorithm
+2025-06-25 08:14:10 INFO Run function 16 complete. FEHistory len: 300, AOCC: 0.0000
+2025-06-25 08:14:10 INFO FeHistory: [122154.15879265 132736.97300837 175859.97955436 126459.78315251
+ 141237.35948606 174679.46371283 135059.25075979  72801.07959307
+  97936.42794637 158297.0025598  104583.72560115 153387.83944246
+ 160574.26157848 148559.32738463 120747.16340941  89018.18626814
+ 155095.42913013  94151.6178898   93715.65434317 145150.28877637
+  97790.97772658 129688.80719777 116220.6292371  168222.43397633
+ 123257.93507153 187580.06591316 154902.66559514 160372.96370444
+ 163182.10414775 120589.60218399 122327.21816271 135969.60142909
+ 109967.5225356  170482.06903568 144826.21339804 139747.95206538
+ 146435.0538584  166360.10547388 114299.26498574 128605.58280821
+ 150059.73411969 160403.45321461 211147.50795091 157328.75094005
+ 143931.6128865  136736.96587689 151476.17152866 145911.86741753
+ 122033.63739059 104696.98593804 163641.46680301 148361.63513137
+ 168156.74391051 114056.74858463 129270.53847774 134511.57906527
+ 146798.38670538  84722.26872643 146298.95421894 149333.01177792
+ 145151.08323406 141530.21345645 121041.79545216 122299.31755987
+ 119073.98138895 133368.27657291 100122.24572182 126637.49823498
+ 113477.53494003 109566.28750713 121587.03482737 156504.78129232
+ 122436.18677347 176737.35543365  74820.95512903 121263.17267935
+ 116128.9359187  165352.62542711 100358.47553887 158110.14217153
+ 152960.00688805 142933.02092737 155156.55885911 107452.6744875
+ 156388.0652199  106428.24873597  96354.9474744  132085.68768821
+ 129383.52734618 140259.75094877 179771.85550893 122499.95281744
+ 177276.72353841 140048.05521574 103401.71269282 152303.55279281
+ 146821.04116398  95724.33282006 101887.80233648 145191.23560422
+ 178820.03849902 142909.42213195 134879.05633812 130794.18412327
+ 168302.20122296  88609.66674994 195151.30568158 122783.39379817
+ 124063.47971613 165524.92468637 160807.92395461 124589.76577014
+ 145962.32114965 132506.52431659 111218.12942748 132164.11762885
+ 104284.21368804 112373.77713019 187619.90234049 180195.94658197
+ 130590.80866444  87820.50687418 130419.82931252 113984.76184734
+ 164135.49428568 129869.75901655 137709.42932613 107427.83888463
+ 142537.95016138 119928.95429683 143536.2171081  148659.41743939
+  85496.31797729 134116.84180758 140293.17537272 111543.79935457
+ 146387.15544433 144009.03408831 116595.45499268 135518.33760561
+ 140146.55440628 116281.76601847 162923.96977803 129564.48681092
+ 121650.49186008 105391.76044241 165775.77988537 123360.09264964
+ 104936.79266552 147268.30529824  96829.20332469 174367.63860284
+ 108256.26009053 182007.03104517 128669.80864557 117529.41169204
+ 124415.34019047 127209.37495387 137836.15129522 110330.31585054
+ 129796.55553378  95737.05339808 107185.31261612 107489.3842613
+ 143058.73033992 144951.83336795 100912.62579445 105628.18367546
+ 138014.7998161  118381.66102974  99493.26207939  91252.12487387
+ 121076.45193721 132646.3028956   89288.80004326 105858.79056449
+ 172417.94893613 146270.48883105 128484.56406975 112194.85487605
+ 136136.75632961 118899.79324411 125333.84670662 102229.17444028
+ 141339.96733184 114021.25296438 132924.8193674  128542.8966933
+ 106511.84490272 151421.46033323 144265.89209158 134139.99706291
+ 136598.45072506 146378.68979191 150822.98259533 129989.30547553
+ 100579.32537546 181192.9452123  103052.81354374 110630.11492373
+ 137674.7992868   83551.69932251 131846.6720456  153505.54698642
+ 115528.84191282 107056.06609316 109092.21759754 133401.97211659
+ 111251.72731916 112813.60623597 150399.36376968 141733.56896375
+  93198.34056522  93022.81450355 152095.67051677 166467.85759365
+ 121981.61902008 148377.13505652 178476.7562747  113255.77520824
+  93083.95420944 129011.9651249  109669.91844182 143287.621584
+ 150283.97315794 179445.27443403 118683.66097699  95505.39077316
+ 176256.87362996 137480.17449065  97906.55207746 154730.71530584
+ 155260.83653271  95017.55345153 142917.88181809 119984.34417288
+ 142120.49557031 116230.22763037 134383.77220019 135602.62631213
+ 131961.28617396 129349.5321223  132080.32323641  96036.29348724
+ 105956.55287018 104427.87465122 130192.89333081 132778.24081096
+  88486.20587547 105276.32942263 163893.24004522 130800.00216185
+ 140382.63488614 106678.66645775 134539.04552144 114613.23897607
+ 110519.77289889  98812.93139798 114807.01215278 156575.30034753
+ 136204.81646875 154347.90568381  90577.13264778 145901.34531117
+ 119487.21426019 150693.79732158  85773.07582085 144219.79064507
+ 154882.39954912  86620.75626297 170870.16359942 114760.14857206
+  89461.2793949  109819.09385792 131261.7219456  111105.56875757
+ 114611.29909382 128398.96964165  94850.79484591 119720.05149919
+ 111063.73930347 136787.19786513 123226.48416502 132591.18087601
+ 103569.66260445 102444.62941765 112422.09168906 147028.80051835
+ 127736.13378424 131338.36503382 180180.34190947 107135.38864617
+ 121771.33953519 153871.03210472 110365.57810629 133982.39786226
+ 129038.31162965 147174.9244836   99314.8153419  107960.61227753]
+2025-06-25 08:14:10 INFO Expected Optimum FE: -5000
+2025-06-25 08:14:10 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:14:10 ERROR Can not run the algorithm
+2025-06-25 08:14:10 INFO Run function 18 complete. FEHistory len: 300, AOCC: 0.0000
+2025-06-25 08:14:10 INFO FeHistory: [204353.89707162 167958.25972364 120405.16516248 148561.12673668
+ 216476.53600184 202160.84901875 116510.39551378 126064.2609338
+ 117262.4344263  137248.95063594 146423.27568511 121423.62560908
+ 144338.65753559 183161.82632763 173858.72286733 137344.62773135
+ 156033.78846684 135936.4318672  192343.51478122 147284.66372726
+ 133760.87297464 187024.33171529 168375.75934267 149949.34638877
+ 133636.96130775 119506.75991108 125147.96920636 168698.52637137
+ 141719.84504941 171302.38734634 121012.76194849 163800.74379366
+ 163713.50753993 145913.88676228  79701.20171959 157170.25271861
+ 147438.39295825 140648.32029029 181173.14126398 166047.84937299
+ 166221.56684982 167133.78677239 154426.25785127 106006.61948832
+ 142777.1266111  239554.11703425 131083.0982501  122941.95465073
+ 113803.18635107 180915.29925035 193580.35689951 130088.6831695
+ 198456.73773007 128838.31987149 102613.05925383 158788.09141241
+ 180062.92886973 194757.49846532 156819.68119536 152029.63609836
+ 131357.83904031 154815.94683093 186796.96986532  77089.05836517
+ 130889.67160116  95341.35739104 132179.47969099 110566.56145215
+ 154350.68184214  99558.95837454 112968.03160394 143782.26866605
+ 120202.30886073 207032.18680049 130083.23205316 116765.49934898
+ 168531.70179573 118865.89527352 152217.76390248 150475.55184253
+ 151820.21731494 140824.38247335 176728.50450462 104481.90614448
+ 266899.96482447 145698.30276015 163032.31828868 178881.10976303
+ 221333.41761237 146959.39046316 123030.45379665 144261.77974194
+ 193982.39520024 119115.99078486 121493.8036326  133878.08771642
+ 113209.89635034 139844.32645978  97693.48193    122143.46361071
+ 178353.59026339 130585.70728818 127630.85898764 169771.73276437
+ 138941.11757552 238435.31438317  99929.03306014 155279.79110994
+ 154575.50938942 122289.44610483 134230.49812303 105710.47174583
+ 203431.15205383 257085.19077632 192626.8430603  156941.11564617
+ 136521.48719065 134339.2879716  120425.70286953 203020.72996267
+ 166526.54761265 111108.96181817 170690.27868767 133966.08539661
+ 127427.34113988 159285.89386091 136393.17632716 167965.37908687
+ 151462.12958321 135919.03263366 123277.3142381  128871.50616782
+ 124452.27543015 143087.41941479 241177.42728765 122341.71094872
+ 154138.75063772 141295.79865017 148424.12108291 131139.42215307
+  91258.59731079 226231.61097127 133489.36562396 116748.65136342
+ 174607.94640924 139078.82137887 206336.44445319 156362.31847587
+ 163097.87496084 147457.6040561   95753.13242326 189918.42463058
+ 115046.00580075 189100.84417129 125585.43813928 139104.86447111
+  88059.37027522 171880.04169405 138264.52766362 150355.05759143
+ 115125.30913737 155844.28771548 231848.84105175 186487.73392221
+ 157360.81900671 141041.39327651 201066.30508262 123794.30715132
+  95505.31704803 157908.66802032 209096.9386633  173898.95954783
+ 116145.29156075 272006.40335285 127326.23883124  63006.45406101
+ 182344.82805004 163385.73317456 155035.11829737 104048.32717676
+ 121942.26226314 159664.5977796  105425.72265995 140356.11952159
+ 198367.954909    92224.94965671 205262.33928332 199851.05316944
+ 198567.93851626 191919.60211193 201404.51031836 143558.05492184
+ 169007.84398706 143914.02927363 146357.6455588  150991.40155885
+ 111205.97580044 224429.69425212 141005.30101608 211508.77088398
+ 196384.86584708 188415.15736083 138706.82484823 100806.2056568
+ 157703.88384807 197228.82650874 185794.15957647 134049.42153365
+  89653.31361067 171409.58617503 151154.78637124 198553.81051774
+ 190055.54183069 132257.88103825  83728.14219362 135152.73619214
+ 182810.58391724 191036.29299111 142974.41801174 147568.32716072
+ 173532.29608598 200617.65893154 123402.45425359 170211.90179336
+ 177086.66261323 195362.95491348 134471.35447698 178640.14360471
+ 133379.06570233 131985.55912944 164385.62698513 180027.99120253
+ 181400.36005835  92272.83001572 108019.98511824 164667.33283692
+ 145472.92960546  97696.29194805 160610.81904614 228889.21313784
+ 148868.48758048 140645.83901747 158134.47946531 135204.82187171
+ 138867.48823885 216583.72312342 193175.63138782 109947.1830026
+ 155557.52704934 166934.53014493 130917.53138424 165852.00555783
+ 121548.19433347 124284.94074892 214638.79571512 201865.81357249
+ 153730.20334655 193613.99026018 175831.27511206 156804.23892346
+ 146021.72570676 228391.70167522 107503.73678197  90116.45395732
+ 210950.12306596 122894.02844779 146235.96256885 163052.16239555
+ 282721.39955356  84495.70033818 193537.9219363  127483.00418644
+ 184783.70726838  97474.91875527 161133.34171563 185487.62188223
+ 148043.50681371 170226.40286346 241665.16557481 238758.71395899
+  79471.47368166 167966.48886297 211605.83962252 126798.04533444
+ 174189.17076152 102720.45666787 103188.37737481 108131.52523696
+ 181660.57760852 139069.76576853 193734.44776946 121937.81514214
+ 150804.12749387 179579.11212976 192391.89917473 150748.88712355
+ 130644.63439576 128655.55654667 122468.11275508 213375.16356587]
+2025-06-25 08:14:10 INFO Expected Optimum FE: -5000
+2025-06-25 08:14:10 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:14:10 ERROR Can not run the algorithm
+2025-06-25 08:14:10 INFO Run function 19 complete. FEHistory len: 300, AOCC: 0.0000
+2025-06-25 08:14:10 INFO FeHistory: [168805.71229456 281491.89943497 117469.71438074 242880.24931392
+ 218019.1377288  168815.78002091 150710.13035577 218798.29447336
+ 196976.95624666 152752.81904899 171474.73131533 152634.63418874
+ 190239.03083257 135326.58498049 182775.10761248 150115.14118864
+ 170713.31640458 216864.75551471 131725.06443604 207155.48080459
+ 235701.56768576 192814.92966516 197750.53924964 208912.89542902
+ 186388.21403095 247177.30347943 185178.54327823 126175.18916942
+ 185928.02070593 115560.89294944 220462.05986399 124210.44866509
+ 148175.10382768 188037.49938327 123513.23268946 185477.35358336
+ 116962.17482096 211299.46893315 164280.68299137 181099.22830463
+ 142552.52440451 173117.8462961  159531.27252995 107442.40071216
+ 134132.11329058 232939.05648737 136561.3603566  226694.47378221
+ 180392.78625041 192481.78924718 245634.82685572 323952.38609776
+ 108976.45815678 245064.95042228 194716.87413735 151265.91576808
+ 263549.46211724 200397.07144251 154397.10346019 215954.32970971
+  83245.17341125 119364.74993493 170214.81741074 155199.50200142
+  93264.77826272 259505.96090915 162006.13211955 189068.40011974
+ 170747.43769341 156505.46201001 126304.39711994 110742.29204554
+ 156997.70125247 141562.35462496 135175.11970634 188656.60546039
+ 203385.44325057 236229.63433029 164458.00566213 220873.64256914
+ 206598.45140014  98820.26821357 137304.13407762  54990.49017346
+ 159784.10544248 170070.72039408 132885.17455874 175622.98889849
+ 164240.82096807 127921.04485071 175533.14265312 280417.20198966
+ 216222.41189221  79759.31576699 128807.21645144 209524.95604702
+ 215197.84232909 282497.25972516 158396.0015248  214458.956183
+ 124616.49231035 141396.1945919  166082.36459647 156998.7158092
+ 137995.08464069 150992.34048728  94746.5469834  189275.54891619
+  98813.10689308 173919.92867519 111035.27878353 178317.90915959
+ 305682.32273363 162015.82011195 224891.00119982 231719.98694806
+ 249508.40411396 277440.08439    221861.18695528 119291.48550235
+ 115748.27395832 114874.92906529 134098.58344265 235763.61843619
+ 225618.93166775 160100.60285446 143385.34078831 139543.88689947
+ 185245.92908369 204531.43108605 199616.44523189 138386.90015463
+ 190022.58205249 121903.44696826 169538.63290877 293089.68576901
+ 141169.26757682 130458.57539292 175458.67273477 173388.16795907
+ 201276.39181133 185587.09704561 139436.24170447 185736.69541263
+ 206417.58939909 101840.64213801 148660.69517221 256529.45356388
+ 143846.88946723 156410.34121052  86413.94558484 103115.80670283
+ 155077.24365555  99141.0203941  117909.4511089  169720.07747187
+ 162738.78045938 124731.03456144 159702.39222662 118488.80231104
+ 146895.41732669 207894.51712517 155093.45122845 126491.47769138
+ 246310.54274702 158367.22306301 139774.03605497 167682.52987225
+ 119053.09458226 234129.94802336 132054.229027   195250.01696653
+  87262.13003325 165206.90109133 140330.90476964  98899.40752171
+ 225010.81686452 161245.43054232 196390.07188357 208338.70170569
+ 157115.71633249 164721.05281478 142711.68220863 212957.64788261
+ 242831.06041202 190519.24666354 118341.10666384 151170.37136146
+ 214507.58920299 156780.1213176  209957.66983147 131295.46745936
+ 185935.71747179 210974.36821101 155044.33572636 124459.01897753
+ 108890.23769289 162146.47739611 132421.6591544  123311.29999431
+ 159180.67908216 240478.25845861 146247.29784847 183225.09908257
+ 195716.40370542 130248.09939255 202477.44860009 189542.76675944
+ 228454.18469033 151833.559585   223167.49423659 205416.2915028
+ 156744.41241316 161864.12589315  88477.49927193 244211.81008822
+ 169822.12690033 216727.55801557 161182.10935513 171553.5779102
+ 118558.17543412 188503.49360194 220260.41869622 181727.21012185
+ 179752.44805451 251484.28070895 238523.87391865 136439.57159412
+ 148595.83524378 239242.33408363 228645.81099082 130370.20777969
+ 177989.02735216 185495.55135749 194625.19990752 231626.3889675
+ 153273.261477   156546.90460504 217987.35597452 117378.60509873
+  85464.62054895 235697.3604167  221272.82173681 122757.76991559
+ 120224.39741355 252486.45234183 299869.87341013 279944.23063072
+ 133486.12944358 179726.6334337  250699.98068957 255891.28658922
+ 202204.60305086 179326.49123622 158496.30833142 219285.54900289
+ 208969.90587857 281925.23335408 169382.20590896  93367.06835686
+ 181369.07025293 199744.55954071 147243.55196174 224419.4260257
+ 217638.56518863 156172.70147824 201758.11292325 227356.08578454
+ 204256.0742126  244798.10724466 198398.06564153 167279.3282987
+ 159361.13177877 116138.82762991  95626.03097007 253765.23716921
+ 215898.5977031  139626.82177276 146946.15937687 182515.71707295
+ 173733.31339658 148539.67630025 248894.78620455 190075.30621627
+ 241469.27136556 108072.54110677 185941.41122204 306757.12796248
+ 264579.19954279 153919.44973871 277626.47439002 145825.37688404
+ 184626.23598713 153536.7555885  135571.40904087 142319.8712196
+ 164223.65999425 129217.32763507 186107.74611102 168724.54480934]
+2025-06-25 08:14:10 INFO Expected Optimum FE: -5000
+2025-06-25 08:14:10 INFO Unimodal AOCC mean: nan
+2025-06-25 08:14:10 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:14:10 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:14:10 INFO AOCC mean: 0.0000
+2025-06-25 08:14:10 INFO Weighed AOCC mean: nan
+2025-06-25 08:14:47 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:14:47 INFO FeHistory: [152045.4235926  148403.21070351 153864.03832569 ...  -3635.58609639
+  -4469.72083594  -4469.72083594]
+2025-06-25 08:14:47 INFO Expected Optimum FE: -5000
+2025-06-25 08:14:47 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:15:25 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:15:25 INFO FeHistory: [178506.94804703 111416.9552852  100008.15118166 ...   3616.80059165
+   3616.80059165   9732.01315148]
+2025-06-25 08:15:25 INFO Expected Optimum FE: -5000
+2025-06-25 08:15:25 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:16:02 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:16:02 INFO FeHistory: [175223.4021151  174138.21269692 159508.53186493 ...   1716.73307645
+   1716.73307645   1716.73307645]
+2025-06-25 08:16:02 INFO Expected Optimum FE: -5000
+2025-06-25 08:16:02 INFO Unimodal AOCC mean: nan
+2025-06-25 08:16:02 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:16:02 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:16:02 INFO AOCC mean: 0.0000
+2025-06-25 08:16:02 INFO Weighed AOCC mean: nan
+2025-06-25 08:17:46 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:17:46 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:18:29 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:18:29 INFO FeHistory: [184063.80875756 111089.49891527 113957.07207231 ...  -4460.82033901
+  -4461.37645296  -4460.07203601]
+2025-06-25 08:18:29 INFO Expected Optimum FE: -5000
+2025-06-25 08:18:29 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:18:29 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0320
+2025-06-25 08:18:29 INFO FeHistory: [119235.85309063 127182.24819262 168614.92749512 ...  -4994.68080756
+  -4990.58019581  -4996.96356119]
+2025-06-25 08:18:29 INFO Expected Optimum FE: -5000
+2025-06-25 08:18:29 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:19:08 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:19:08 INFO FeHistory: [1.50601867e+05 1.18554819e+05 1.37067997e+05 ... 6.84163192e+03
+ 4.45316271e+03 1.21301462e+02]
+2025-06-25 08:19:08 INFO Expected Optimum FE: -5000
+2025-06-25 08:19:08 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:19:08 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:19:08 INFO FeHistory: [108714.04878328 136360.52869097 182458.27423956 ...  -3861.5569424
+  -3813.17048329  -3810.38046704]
+2025-06-25 08:19:08 INFO Expected Optimum FE: -5000
+2025-06-25 08:19:08 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 08:19:48 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:19:48 INFO FeHistory: [199103.30287952 150140.42460013 146849.87656418 ... 150558.73118463
+ 212231.62205538 198203.57584468]
+2025-06-25 08:19:48 INFO Expected Optimum FE: -5000
+2025-06-25 08:19:48 INFO Unimodal AOCC mean: nan
+2025-06-25 08:19:48 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:19:48 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 08:19:48 INFO AOCC mean: 0.0000
+2025-06-25 08:19:48 INFO Weighed AOCC mean: nan
+2025-06-25 08:19:48 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:19:48 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 08:19:48 INFO FeHistory: [122021.5052987  220882.7458185  181172.57897588 ...  -2136.99415716
+   -468.32055036  -2533.02471659]
+2025-06-25 08:19:48 INFO Expected Optimum FE: -5000
+2025-06-25 08:19:48 INFO Unimodal AOCC mean: nan
+2025-06-25 08:19:48 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 08:19:48 INFO Multimodal (multiple components) AOCC mean: 0.0107
+2025-06-25 08:19:48 INFO AOCC mean: 0.0107
+2025-06-25 08:19:48 INFO Weighed AOCC mean: nan
+2025-06-25 08:19:48 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 08:20:07 INFO Run function 16 complete. FEHistory len: 66625, AOCC: 0.0000
+2025-06-25 08:20:07 INFO FeHistory: [171748.27845664 148335.54916194 102657.51093901 ...   4108.57577847
+  -4078.38592316  23309.42895223]
+2025-06-25 08:20:07 INFO Expected Optimum FE: -5000
+2025-06-25 08:20:07 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 08:20:26 INFO Run function 18 complete. FEHistory len: 66625, AOCC: 0.0000
+2025-06-25 08:20:26 INFO FeHistory: [150707.43041333 237137.73358189 155378.72215839 ...  36121.26100165
+  27626.27107361  87672.06393668]
+2025-06-25 08:20:26 INFO Expected Optimum FE: -5000
+2025-06-25 08:20:26 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------

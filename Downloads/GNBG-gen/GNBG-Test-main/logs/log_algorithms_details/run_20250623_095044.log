@@ -1,0 +1,391 @@
+2025-06-23 09:50:45 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 09:50:45 ERROR Can not run the algorithm
+2025-06-23 09:50:45 INFO Run function 2 complete. FEHistory len: 201, AOCC: 0.1754
+2025-06-23 09:50:45 INFO FeHistory: [-701.31677521 -701.27486753 -701.30663752 -701.3313974  -701.29583589
+ -701.32570598 -701.29454437 -701.29354341 -701.30269645 -701.30077228
+ -701.30823477 -701.30061315 -701.29731224 -701.31700891 -701.30386199
+ -701.31856714 -701.302081   -701.29199548 -701.29961752 -701.29865866
+ -701.30076334 -701.2858101  -701.30466929 -701.31287971 -701.29707695
+ -701.31252736 -701.30901626 -701.34871917 -701.31177019 -701.31277559
+ -701.28883051 -701.27230263 -701.30538109 -701.29712208 -701.36707253
+ -701.28975107 -701.30951719 -701.35675981 -701.32419068 -701.32739514
+ -701.3408843  -701.30882592 -701.30036349 -701.3282174  -701.29896346
+ -701.29073571 -701.29764838 -701.31908151 -701.32043749 -701.28345825
+ -701.34036542 -701.31064709 -701.35999453 -701.31526661 -701.29550931
+ -701.31456692 -701.31576933 -701.32456071 -701.33109887 -701.29404116
+ -701.30545989 -701.29122305 -701.31698257 -701.28779927 -701.34043489
+ -701.30366331 -701.31797695 -701.32052438 -701.32729126 -701.30024592
+ -701.31896108 -701.275747   -701.31628593 -701.31482271 -701.32305062
+ -701.29756381 -701.32606107 -701.30430183 -701.29475209 -701.29731505
+ -701.34502257 -701.2803052  -701.29120227 -701.28214973 -701.33315622
+ -701.3003301  -701.27390181 -701.32504741 -701.31201357 -701.29297224
+ -701.30125328 -701.32387994 -701.30292844 -701.29679613 -701.32255724
+ -701.31234103 -701.33682949 -701.29590125 -701.34695232 -701.31538081
+ -701.30846359 -701.28532273 -701.30701866 -701.33945202 -701.31088262
+ -701.29408905 -701.29499809 -701.37270538 -701.30288504 -701.32222852
+ -701.30606276 -701.2834725  -701.30511328 -701.29897927 -701.32172024
+ -701.30346273 -701.29045522 -701.28516604 -701.27918656 -701.2906552
+ -701.27197449 -701.3250104  -701.25902969 -701.31734853 -701.27934361
+ -701.29031188 -701.29820523 -701.30501774 -701.31351681 -701.28759889
+ -701.31047448 -701.28204318 -701.26745533 -701.29726029 -701.30551517
+ -701.29592536 -701.29017087 -701.3389976  -701.28147184 -701.29919258
+ -701.29590656 -701.27920862 -701.31260437 -701.31224987 -701.28418486
+ -701.30395202 -701.26689338 -701.27852904 -701.29681489 -701.26849672
+ -701.31304793 -701.33723234 -701.24900769 -701.27576715 -701.27227615
+ -701.30634131 -701.32495254 -701.29426033 -701.29416926 -701.28646145
+ -701.33301662 -701.27593996 -701.27184053 -701.29585886 -701.29765016
+ -701.32679515 -701.27756262 -701.32270297 -701.35140257 -701.28915919
+ -701.29207043 -701.31144568 -701.28117602 -701.27501637 -701.32578397
+ -701.28518838 -701.3230974  -701.29362289 -701.30821468 -701.27841575
+ -701.28826781 -701.30687908 -701.32926309 -701.31414789 -701.27735225
+ -701.33410514 -701.28571514 -701.28178868 -701.31429907 -701.30001805
+ -701.27878951 -701.31510505 -701.32048754 -701.28953213 -701.30001423
+ -701.28417883 -701.3203532  -701.27394058 -701.29598595 -701.30383016
+ -701.27390143]
+2025-06-23 09:50:45 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 09:50:45 INFO Good algorithm:
+Algorithm Name: AdaptiveLatinHypercubeDE
+import numpy as np
+from scipy.stats import qmc
+
+# Name: AdaptiveLatinHypercubeDE
+# Description: Combines Latin Hypercube sampling, adaptive differential evolution, and a fitness-based archive for multimodal optimization.
+# Code:
+class AdaptiveLatinHypercubeDE:
+    """
+    Combines Latin Hypercube sampling, adaptive differential evolution, and a fitness-based archive for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], population_size: int = 100, archive_size: int = 200):
+        self.budget = budget
+        self.dim = dim
+        self.lower_bounds = np.array(lower_bounds)
+        self.upper_bounds = np.array(upper_bounds)
+        self.population_size = population_size
+        self.archive_size = archive_size
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.F = 0.5  # Initial DE scaling factor
+        self.CR = 0.9  # Initial DE crossover rate
+        self.archive = []
+        self.archive_capacity = archive_size
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1,-1))[0]
+        self.eval_count += 1
+
+        population = self._latin_hypercube_sampling()
+        fitness = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness, offspring_fitness)))
+            
+            # Selection: Prioritize archive solutions
+            selected_indices = np.random.choice(len(self.archive), size=self.population_size, replace=False, p=self._get_selection_probabilities())
+            population = np.array([self.archive[i][:-1] for i in selected_indices])
+            fitness = np.array([self.archive[i][-1] for i in selected_indices])
+
+            self._update_best(population, fitness)
+            self._adapt_parameters(population, fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _latin_hypercube_sampling(self):
+        sampler = qmc.LatinHypercube(d=self.dim)
+        sample = sampler.random(n=self.population_size)
+        scaled_sample = qmc.scale(sample, self.lower_bounds, self.upper_bounds)
+        return scaled_sample
+
+    def _differential_evolution(self, population, fitness):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+            offspring[i] = trial
+        return offspring
+
+    def _update_best(self, population, fitness):
+        best_index = np.argmin(fitness)
+        if fitness[best_index] < self.best_fitness_overall:
+            self.best_fitness_overall = fitness[best_index]
+            self.best_solution_overall = population[best_index]
+
+    def _update_archive(self, population, fitness):
+        combined = np.column_stack((population, fitness))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+
+        new_archive.sort(key=lambda x: x[-1])  # Sort by fitness
+        self.archive = np.array(new_archive[:self.archive_capacity])
+        return self.archive
+
+    def _get_selection_probabilities(self):
+        min_fitness = self.archive[:, -1].min()
+        max_fitness = self.archive[:, -1].max()
+        if max_fitness == min_fitness:
+            return np.ones(len(self.archive)) / len(self.archive)
+        fitness_diffs = max_fitness - self.archive[:, -1]
+        probabilities = fitness_diffs / fitness_diffs.sum()
+        return probabilities
+
+
+    def _adapt_parameters(self, population, fitness):
+        #Adapt F and CR based on success rate in DE
+        success_rate = np.mean(fitness < objective_function(population))
+        if success_rate < 0.2:
+            self.F *= 0.9
+            self.CR *= 0.9
+        elif success_rate > 0.8:
+            self.F *= 1.1
+            self.CR *= 1.1
+
+        self.F = np.clip(self.F, 0.1, 1.0)
+        self.CR = np.clip(self.CR, 0.1, 1.0)
+2025-06-23 09:50:45 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 09:50:46 ERROR Can not run the algorithm
+2025-06-23 09:50:46 INFO Run function 15 complete. FEHistory len: 201, AOCC: 0.1012
+2025-06-23 09:50:46 INFO FeHistory: [-221.70057473 -221.90475422 -220.66085308 -221.77406258 -223.32306351
+ -222.27155192 -221.88248879 -223.5008239  -220.70017603 -221.84896008
+ -222.14427842 -222.80010051 -222.26212797 -222.73701373 -223.05647652
+ -221.45364278 -222.31311757 -223.68985996 -223.13174493 -221.245891
+ -222.28367723 -222.33236917 -221.19500749 -221.79000864 -221.77254877
+ -220.50969636 -222.51610394 -221.09319623 -222.03377399 -222.76258942
+ -219.98884622 -222.67137    -221.21555509 -222.23438057 -221.92444927
+ -220.44852694 -220.95049686 -220.87090953 -221.11477194 -221.24642951
+ -221.00904882 -220.03849654 -221.75940395 -221.72224487 -220.73748506
+ -222.22103257 -223.23371601 -222.83704597 -221.62366867 -224.06277214
+ -221.12653756 -221.18912126 -223.60249744 -221.63335299 -222.66054815
+ -220.36815694 -222.5960478  -221.71331417 -221.55504041 -222.83915097
+ -220.96041926 -221.86945374 -222.67764406 -221.31184681 -221.28679738
+ -221.64052239 -222.87380212 -221.43043496 -221.21084877 -221.56459598
+ -222.51564651 -222.65359635 -222.42189427 -221.92230397 -221.67607151
+ -222.83077026 -222.22266941 -222.80144971 -222.48082503 -222.44238239
+ -222.25824672 -222.87684685 -221.87316869 -222.13107305 -222.87797405
+ -221.92618758 -221.86635935 -223.21029917 -221.81739042 -219.69466848
+ -222.87433154 -222.03611548 -223.09941973 -223.09413764 -222.31578912
+ -222.23735914 -220.70069766 -221.28936089 -222.1499245  -221.77571628
+ -222.78679952 -222.37558177 -221.69256203 -222.89382689 -222.14474488
+ -221.39033932 -221.57957439 -220.89690513 -220.83028721 -221.94768114
+ -220.84352006 -222.78594166 -221.93756039 -220.00426398 -222.89853423
+ -221.58496057 -221.4076722  -221.80208833 -220.04804498 -223.64368427
+ -220.43031224 -221.94895433 -222.31583008 -220.31976458 -223.39299471
+ -222.65011187 -221.9835262  -221.25142551 -222.15684545 -223.38439326
+ -222.05004025 -222.93610643 -223.23868359 -223.1604104  -221.9049604
+ -222.81202979 -221.78689178 -222.01938598 -221.33931142 -222.97434718
+ -221.09162495 -220.52237722 -222.52534219 -221.86605554 -220.69297507
+ -221.15681525 -222.45499546 -221.97379206 -220.78478415 -221.17704253
+ -220.66493096 -224.56062063 -221.86073902 -221.46583045 -220.6930627
+ -222.0736451  -223.36519217 -222.23613934 -220.52385245 -222.12976427
+ -221.64222156 -220.4446826  -220.76753345 -221.93547761 -221.44659186
+ -222.40323873 -222.80069067 -220.63001815 -222.4848459  -221.6332917
+ -220.59153862 -222.57385222 -221.52340341 -221.60408398 -221.51165206
+ -222.95727678 -222.93035217 -222.69434274 -220.00364469 -221.5082871
+ -221.30258705 -222.76896903 -223.69929209 -222.20916795 -220.69009232
+ -222.98764837 -223.37145445 -224.52153179 -221.72583388 -220.53023969
+ -223.22371291 -222.44164896 -222.49505603 -220.42662935 -222.79876403
+ -221.83372612 -221.95762763 -222.29868071 -221.94740772 -221.42892321
+ -222.02723103]
+2025-06-23 09:50:46 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 09:50:46 INFO Good algorithm:
+Algorithm Name: AdaptiveLatinHypercubeDE
+import numpy as np
+from scipy.stats import qmc
+
+# Name: AdaptiveLatinHypercubeDE
+# Description: Combines Latin Hypercube sampling, adaptive differential evolution, and a fitness-based archive for multimodal optimization.
+# Code:
+class AdaptiveLatinHypercubeDE:
+    """
+    Combines Latin Hypercube sampling, adaptive differential evolution, and a fitness-based archive for efficient multimodal optimization.
+    """
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], population_size: int = 100, archive_size: int = 200):
+        self.budget = budget
+        self.dim = dim
+        self.lower_bounds = np.array(lower_bounds)
+        self.upper_bounds = np.array(upper_bounds)
+        self.population_size = population_size
+        self.archive_size = archive_size
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.F = 0.5  # Initial DE scaling factor
+        self.CR = 0.9  # Initial DE crossover rate
+        self.archive = []
+        self.archive_capacity = archive_size
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1,-1))[0]
+        self.eval_count += 1
+
+        population = self._latin_hypercube_sampling()
+        fitness = objective_function(population)
+        self.eval_count += self.population_size
+        self.archive = self._update_archive(population, fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self._differential_evolution(population, fitness)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+            self.archive = self._update_archive(np.vstack((population, offspring)), np.concatenate((fitness, offspring_fitness)))
+            
+            # Selection: Prioritize archive solutions
+            selected_indices = np.random.choice(len(self.archive), size=self.population_size, replace=False, p=self._get_selection_probabilities())
+            population = np.array([self.archive[i][:-1] for i in selected_indices])
+            fitness = np.array([self.archive[i][-1] for i in selected_indices])
+
+            self._update_best(population, fitness)
+            self._adapt_parameters(population, fitness)
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _latin_hypercube_sampling(self):
+        sampler = qmc.LatinHypercube(d=self.dim)
+        sample = sampler.random(n=self.population_size)
+        scaled_sample = qmc.scale(sample, self.lower_bounds, self.upper_bounds)
+        return scaled_sample
+
+    def _differential_evolution(self, population, fitness):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+            trial = np.where(np.random.rand(self.dim) < self.CR, mutant, population[i])
+            offspring[i] = trial
+        return offspring
+
+    def _update_best(self, population, fitness):
+        best_index = np.argmin(fitness)
+        if fitness[best_index] < self.best_fitness_overall:
+            self.best_fitness_overall = fitness[best_index]
+            self.best_solution_overall = population[best_index]
+
+    def _update_archive(self, population, fitness):
+        combined = np.column_stack((population, fitness))
+        new_archive = []
+        for sol in combined:
+            already_present = any(np.allclose(sol[:-1], arch[:-1], atol=1e-6) for arch in self.archive)
+            if not already_present:
+                new_archive.append(sol)
+
+        new_archive.sort(key=lambda x: x[-1])  # Sort by fitness
+        self.archive = np.array(new_archive[:self.archive_capacity])
+        return self.archive
+
+    def _get_selection_probabilities(self):
+        min_fitness = self.archive[:, -1].min()
+        max_fitness = self.archive[:, -1].max()
+        if max_fitness == min_fitness:
+            return np.ones(len(self.archive)) / len(self.archive)
+        fitness_diffs = max_fitness - self.archive[:, -1]
+        probabilities = fitness_diffs / fitness_diffs.sum()
+        return probabilities
+
+
+    def _adapt_parameters(self, population, fitness):
+        #Adapt F and CR based on success rate in DE
+        success_rate = np.mean(fitness < objective_function(population))
+        if success_rate < 0.2:
+            self.F *= 0.9
+            self.CR *= 0.9
+        elif success_rate > 0.8:
+            self.F *= 1.1
+            self.CR *= 1.1
+
+        self.F = np.clip(self.F, 0.1, 1.0)
+        self.CR = np.clip(self.CR, 0.1, 1.0)
+2025-06-23 09:50:46 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 09:50:46 ERROR Can not run the algorithm
+2025-06-23 09:50:46 INFO Run function 24 complete. FEHistory len: 201, AOCC: 0.0000
+2025-06-23 09:50:46 INFO FeHistory: [187.47238536 205.23615501 180.78014749 181.54503969 185.24261565
+ 196.27991163 182.42799523 197.06741402 175.52789547 187.57856001
+ 170.15198493 194.95832671 195.49891113 187.36438553 187.99512007
+ 166.27023492 202.59391808 186.33902115 202.46768746 179.79297915
+ 209.84719832 197.80405202 196.09424583 204.7026119  193.66178302
+ 176.66726065 192.65174635 214.181317   172.04914476 211.24652527
+ 209.61968083 171.31557799 201.05611551 190.66880615 143.76918591
+ 156.58829595 164.97622773 175.0520754  201.46812457 184.66848967
+ 196.38189611 177.3586633  160.56024355 169.11759971 221.29424141
+ 198.4727618  197.62106177 205.35896728 148.88821419 213.25223304
+ 186.65378029 197.04780049 193.67655112 192.14004285 174.59494391
+ 191.11024464 181.28114687 207.56876804 215.33381186 179.58259148
+ 218.28049247 206.19881549 190.75797799 193.62032193 180.4121828
+ 185.37088129 202.05692058 185.65990543 165.6828521  195.46237535
+ 164.21768571 219.58739307 204.19195918 179.31095371 154.71279504
+ 158.98714426 176.54479404 215.65906895 175.16788948 192.62582994
+ 208.11288881 183.53670931 183.51795623 184.22336138 188.29388464
+ 198.67483168 183.24644539 187.62442989 230.08110627 197.12521431
+ 178.91102392 199.78512787 189.35246983 187.12285289 199.07890211
+ 190.25308458 191.53869643 196.3119932  171.13026379 203.17609224
+ 216.40415055 238.9103447  172.5520018  222.5750966  210.89346513
+ 208.83866594 225.82302645 190.39472439 204.35082051 194.05637832
+ 204.75934564 192.8459752  172.94310631 203.04123759 169.39691287
+ 149.92946378 182.65418707 179.9738058  215.83931854 202.22721035
+ 179.2372579  183.1767187  194.71190242 222.49359829 232.54643254
+ 215.18319883 214.5015486  184.91092313 212.8974358  214.46445668
+ 204.88711136 204.74006223 178.02635833 181.63193158 195.68476311
+ 168.50656739 230.89868343 197.87469223 210.00305092 208.00018396
+ 204.20986729 197.5047059  180.46207578 188.31806318 158.00483386
+ 204.41911719 217.91813027 217.05372414 208.8283686  184.06795291
+ 226.01729921 194.51730646 196.9078434  181.88274546 154.26266516
+ 204.47814125 215.15075561 212.2408595  177.72925571 200.76132931
+ 200.1324484  200.2493233  171.29038081 204.08830563 236.27448955
+ 192.05584945 177.09658275 177.20286621 191.94726117 201.13463257
+ 170.24826711 181.39533561 186.55076674 191.71954367 177.03705491
+ 161.07461093 187.74005253 194.22202477 237.8996116  207.38916839
+ 187.36222274 208.24081031 208.37794789 208.22607137 213.27753805
+ 210.03606176 193.88266597 220.64794874 187.62020265 207.72399572
+ 194.60243412 236.65953077 218.46022962 186.41963143 175.51304697
+ 189.01956338 219.03214523 203.55723544 166.96133036 209.45591411
+ 207.57406634]
+2025-06-23 09:50:46 INFO Expected Optimum FE: -100
+2025-06-23 09:50:46 INFO Unimodal AOCC mean: 0.1754
+2025-06-23 09:50:46 INFO Multimodal (single component) AOCC mean: 0.1012
+2025-06-23 09:50:46 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 09:50:46 INFO AOCC mean: 0.0922

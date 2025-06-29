@@ -1,0 +1,1851 @@
+2025-06-25 07:27:38 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 07:27:49 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 07:28:01 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 07:28:12 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 07:28:23 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-25 07:28:41 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:29:30 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.6822
+2025-06-25 07:29:30 INFO FeHistory: [189039.02623638 193355.65430678  78448.54222997 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-25 07:29:30 INFO Expected Optimum FE: -5000
+2025-06-25 07:29:30 INFO Good algorithm:
+Algorithm Name: IslandModelDifferentialEvolution
+import numpy as np
+import random
+
+# Name: IslandModelDifferentialEvolution
+# Description: Implements an island model with differential evolution (DE) for exploring multimodal landscapes by migrating individuals between subpopulations.
+# Code:
+class IslandModelDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 4, population_size: int = 25, crossover_rate: float = 0.7, mutation_factor: float = 0.5, migration_interval: int = 500, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = int(num_islands)
+        self.population_size = int(population_size)
+        self.crossover_rate = float(crossover_rate)
+        self.mutation_factor = float(mutation_factor)
+        self.migration_interval = int(migration_interval)
+        self.migration_size = int(migration_size)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.populations = []
+        self.fitness_values = []
+
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.populations.append(population)
+            self.fitness_values.append(np.full(self.population_size, float('inf')))  # Initialize fitnesses
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0  # Reset for this run
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                # Differential Evolution within each island
+                for j in range(self.population_size):
+                    # Mutation
+                    indices = random.sample(range(self.population_size), 3)
+                    while j in indices:
+                        indices = random.sample(range(self.population_size), 3)
+
+                    x_r1 = self.populations[i][indices[0]]
+                    x_r2 = self.populations[i][indices[1]]
+                    x_r3 = self.populations[i][indices[2]]
+                    
+                    mutant_vector = x_r1 + self.mutation_factor * (x_r2 - x_r3)
+                    mutant_vector = np.clip(mutant_vector, self.lower_bounds, self.upper_bounds)
+
+                    # Crossover
+                    trial_vector = np.zeros(self.dim)
+                    for k in range(self.dim):
+                        if random.random() < self.crossover_rate or k == random.randint(0, self.dim - 1):
+                            trial_vector[k] = mutant_vector[k]
+                        else:
+                            trial_vector[k] = self.populations[i][j][k]
+
+                    # Evaluation
+                    fitness = objective_function(trial_vector.reshape(1, -1))[0]
+                    self.eval_count += 1
+
+                    # Selection
+                    if fitness < self.fitness_values[i][j]:
+                        self.populations[i][j] = trial_vector
+                        self.fitness_values[i][j] = fitness
+
+                        if fitness < self.best_fitness_overall:
+                            self.best_fitness_overall = fitness
+                            self.best_solution_overall = trial_vector
+
+            # Migration between islands
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                for i in range(self.num_islands):
+                    # Choose migrants from the current island
+                    migrant_indices = np.argsort(self.fitness_values[i])[:self.migration_size]
+                    migrants = self.populations[i][migrant_indices]
+
+                    # Choose a target island
+                    target_island = (i + 1) % self.num_islands
+
+                    # Replace worst individuals in the target island with the migrants
+                    replacement_indices = np.argsort(self.fitness_values[target_island])[-self.migration_size:]
+                    self.populations[target_island][replacement_indices] = migrants
+                    
+                    # Re-evaluate fitness of the migrants in target island after migration
+                    migrant_fitnesses = objective_function(migrants)
+                    self.eval_count += self.migration_size
+                    self.fitness_values[target_island][replacement_indices] = migrant_fitnesses
+                    
+                    # Update global best if needed
+                    for fitness in migrant_fitnesses:
+                        if fitness < self.best_fitness_overall:
+                            self.best_fitness_overall = fitness
+                            self.best_solution_overall = self.populations[target_island][np.argmin(self.fitness_values[target_island])] #Update the whole best solution.
+
+        if self.best_solution_overall is None and self.dim > 0:  # Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1,-1))[0]
+            self.eval_count +=1
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'num_islands': self.num_islands,
+            'population_size': self.population_size,
+            'crossover_rate': self.crossover_rate,
+            'mutation_factor': self.mutation_factor,
+            'migration_interval': self.migration_interval,
+            'migration_size': self.migration_size
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-25 07:29:30 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:30:18 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:30:18 INFO FeHistory: [179376.98735444  76285.06825935 165240.68571144 ...  -4317.8999995
+  -4317.89999928  -4317.89999916]
+2025-06-25 07:30:18 INFO Expected Optimum FE: -5000
+2025-06-25 07:30:18 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:31:05 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:31:05 INFO FeHistory: [250581.37030738 173699.6329272  105967.07608236 ...  -4317.71792828
+  -4317.66618972  -4317.69958238]
+2025-06-25 07:31:05 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:05 INFO Unimodal AOCC mean: nan
+2025-06-25 07:31:05 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:31:05 INFO Multimodal (multiple components) AOCC mean: 0.2274
+2025-06-25 07:31:05 INFO AOCC mean: 0.2274
+2025-06-25 07:31:05 INFO Weighed AOCC mean: nan
+2025-06-25 07:31:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:31:21 ERROR Can not run the algorithm
+2025-06-25 07:31:21 INFO Run function 16 complete. FEHistory len: 50200, AOCC: 0.4301
+2025-06-25 07:31:21 INFO FeHistory: [130257.28009893 142224.17608948 171429.38522169 ...  -4999.72885752
+  -4999.71981563  -4999.73884311]
+2025-06-25 07:31:21 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:21 INFO Good algorithm:
+Algorithm Name: IslandBasedDifferentialEvolution
+import numpy as np
+import random
+
+
+# Name: IslandBasedDifferentialEvolution
+# Description: Island-based differential evolution with periodic migration to promote diversity and global exploration in multimodal landscapes.
+# Code:
+class IslandBasedDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 20, crossover_rate: float = 0.7, mutation_factor: float = 0.5, migration_interval: int = 500, migration_size: int = 2):
+        """
+        Initializes the IslandBasedDifferentialEvolution optimizer.
+
+        Args:
+            budget (int): The maximum number of function evaluations.
+            dim (int): The dimensionality of the problem.
+            lower_bounds (list[float]): A list of lower bounds for each dimension.
+            upper_bounds (list[float]): A list of upper bounds for each dimension.
+            num_islands (int): The number of independent subpopulations (islands).
+            population_size (int): The size of each island's population.
+            crossover_rate (float): The crossover rate for differential evolution.
+            mutation_factor (float): The mutation factor for differential evolution.
+            migration_interval (int): The number of iterations between migrations.
+            migration_size (int): The number of individuals to migrate between islands.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = int(num_islands)
+        self.population_size = int(population_size)
+        self.crossover_rate = float(crossover_rate)
+        self.mutation_factor = float(mutation_factor)
+        self.migration_interval = int(migration_interval)
+        self.migration_size = int(migration_size)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands with random populations
+        self.islands = []
+        self.island_fitnesses = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+            self.islands.append(population)
+            self.island_fitnesses.append(np.full(self.population_size, float('inf')))
+
+    def differential_evolution_step(self, population, fitnesses, objective_function):
+        """
+        Performs one step of differential evolution on a single island.
+
+        Args:
+            population (np.ndarray): The population of the island.
+            fitnesses (np.ndarray): The fitness values of the population.
+            objective_function (callable): The objective function to minimize.
+
+        Returns:
+            tuple: Updated population and fitness values.
+        """
+        new_population = np.copy(population)
+        new_fitnesses = np.copy(fitnesses)
+
+        for i in range(self.population_size):
+            # Mutation
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+            mutant = population[a] + self.mutation_factor * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  # Keep within bounds
+
+            # Crossover
+            cross_points = np.random.rand(self.dim) < self.crossover_rate
+            trial_vector = np.where(cross_points, mutant, population[i])
+
+            # Evaluation
+            trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]
+            self.eval_count += 1
+
+            # Selection
+            if trial_fitness < fitnesses[i]:
+                new_population[i] = trial_vector
+                new_fitnesses[i] = trial_fitness
+
+                # Update global best
+                if trial_fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = trial_fitness
+                    self.best_solution_overall = trial_vector
+
+        return new_population, new_fitnesses
+
+    def migrate(self):
+        """
+        Migrates individuals between islands to promote diversity.
+        """
+        # For each island, send some individuals to another random island
+        for i in range(self.num_islands):
+            # Select a random target island (other than the current one)
+            target_island = random.choice([j for j in range(self.num_islands) if j != i])
+
+            # Select individuals to migrate from the current island
+            migrants_indices = np.argsort(self.island_fitnesses[i])[:self.migration_size]
+            migrants = self.islands[i][migrants_indices]
+
+            # Replace some individuals in the target island with the migrants
+            replace_indices = random.sample(range(self.population_size), self.migration_size)  # Indices of individuals to replace
+            self.islands[target_island][replace_indices] = migrants
+
+            # Re-evaluate the fitness of the replaced individuals in the target island.
+            replaced_individuals = self.islands[target_island][replace_indices]
+            new_fitnesses = objective_function(replaced_individuals)
+            self.eval_count += len(replaced_individuals)
+            self.island_fitnesses[target_island][replace_indices] = new_fitnesses
+
+            # Update global best if any of the new individuals in the target island have lower fitness.
+            for fitness, individual in zip(new_fitnesses, replaced_individuals):
+                if fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = fitness
+                    self.best_solution_overall = individual
+
+
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the objective function using island-based differential evolution.
+
+        Args:
+            objective_function (callable): The objective function to minimize.
+            acceptance_threshold (float): The acceptance threshold for early stopping.
+
+        Returns:
+            tuple: A tuple containing the best solution, best fitness, and optimization information.
+        """
+        self.eval_count = 0  # Reset for this run
+
+        # Initialize best solution (using a random solution from the initial population)
+        self.best_solution_overall = self.islands[0][0].copy() # Avoids pass-by-reference problems
+        self.best_fitness_overall = float('inf')
+
+        # Evaluate initial populations on all islands
+        for i in range(self.num_islands):
+            fitnesses = objective_function(self.islands[i])
+            self.eval_count += self.population_size
+            self.island_fitnesses[i] = fitnesses
+
+            # Update global best from the initial population
+            best_index = np.argmin(fitnesses)
+            if fitnesses[best_index] < self.best_fitness_overall:
+                self.best_fitness_overall = fitnesses[best_index]
+                self.best_solution_overall = self.islands[i][best_index].copy()
+
+
+
+        iteration = 0
+        while self.eval_count < self.budget:
+            # Perform DE on each island
+            for i in range(self.num_islands):
+                self.islands[i], self.island_fitnesses[i] = self.differential_evolution_step(
+                    self.islands[i], self.island_fitnesses[i], objective_function
+                )
+
+            # Migrate individuals between islands periodically
+            if iteration % self.migration_interval == 0 and iteration > 0:
+                self.migrate()
+
+            iteration += 1
+
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'num_islands': self.num_islands,
+            'population_size': self.population_size,
+            'crossover_rate': self.crossover_rate,
+            'mutation_factor': self.mutation_factor,
+            'migration_interval': self.migration_interval,
+            'migration_size': self.migration_size
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-25 07:31:21 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:31:36 ERROR Can not run the algorithm
+2025-06-25 07:31:37 INFO Run function 18 complete. FEHistory len: 50200, AOCC: 0.0000
+2025-06-25 07:31:37 INFO FeHistory: [171044.89713537 135381.197663   128756.54276753 ...  -3666.19596133
+  -3193.84064076  -3000.91899624]
+2025-06-25 07:31:37 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:37 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:31:52 ERROR Can not run the algorithm
+2025-06-25 07:31:52 INFO Run function 19 complete. FEHistory len: 50200, AOCC: 0.0000
+2025-06-25 07:31:52 INFO FeHistory: [183814.37811344  86873.66506401 101926.57148198 ...   3449.32874338
+  -2001.57255518  -1455.52898224]
+2025-06-25 07:31:52 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:52 INFO Unimodal AOCC mean: nan
+2025-06-25 07:31:52 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:31:52 INFO Multimodal (multiple components) AOCC mean: 0.1434
+2025-06-25 07:31:52 INFO AOCC mean: 0.1434
+2025-06-25 07:31:52 INFO Weighed AOCC mean: nan
+2025-06-25 07:31:52 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:31:53 ERROR Can not run the algorithm
+2025-06-25 07:31:53 INFO Run function 16 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-25 07:31:53 INFO FeHistory: [128745.55248889 122592.95375853 167311.31056625 124594.50363486
+ 142053.37902516 113317.67219316 117775.83985441 128163.13292471
+ 112229.23952695 132062.37957025 119045.09975739 152071.22348794
+ 114418.04994749  94074.09595373 142156.69449185 140612.35135132
+  89661.7745571  155753.58430759 180120.77115131 155445.88434466
+ 148544.64503778 112189.01739055 143246.95478858 152667.19019012
+ 134518.87840414 119769.72000965 114396.57433316 134979.44566042
+ 147589.39154379 136428.59287876 137805.72997978 122782.24421756
+ 113371.38627411 171839.13260112 133016.03177067  98010.71883737
+  90710.56627118 128429.33943636 137074.93587239 168844.97588725
+ 125683.65051586 113287.79942768 156320.51309398 128132.05242403
+ 131817.80276733 159226.0982475  140609.74525416  79227.47399292
+  92329.75526066 112737.67454585 130801.3269405  152436.18575089
+ 103353.72208136 145717.98084147 131127.62862246 116014.97267464
+ 155017.52949402 137436.61547066 148534.94245354  98184.5105545
+ 169245.51692406 135250.99477266 129399.30816643 160437.53595827
+ 112860.75860498 119150.53825116 139275.57193614 128166.04042305
+ 106949.08465405 115547.94374313 107193.90497305 142130.0767706
+ 164834.78932565 142596.28190944 145712.1843481  104679.83540292
+  95182.87484142 109290.76647084 113075.86697267 159769.29839105
+ 122018.71660728 129221.77742994 123332.6617882  117519.653526
+ 146053.40566728 107469.17958856  76265.06176778  88477.5024349
+ 145092.09105294 151386.95434601 142284.51890407  97995.80997558
+ 145079.33799169 156247.51514578 131993.46719874 140387.83102098
+ 124258.5227554  153736.44777012 125698.45201567 148212.48796203
+  97301.55351708  91770.50331682 129637.12188354 152640.65521704
+  97184.87912819 137308.15426021 122030.32539158  94047.3403042
+ 142612.44228074 109443.59501943 174705.06826822 129094.45693097
+ 115362.61154493 131237.68814896 151056.73656528 185070.96628351
+ 142129.21194177 151337.4919547  133192.85802182 123958.8784395
+ 116076.11915923 149268.11550427  91383.11486654 144808.97449637
+ 173185.27463576 129729.11252004 142944.05072634 116307.91126009
+ 123477.16793537 141845.52880584  98069.73382677 141868.9888216
+ 140053.07934652 128158.21036811 100534.78470892 138390.25172815
+ 127489.0145565  135224.8277905  101877.45484529  81088.04250059
+ 204064.97884508 152261.25833243 127960.20395808 141197.28811201
+  93555.91266327 139209.34317153 101302.04721266 121470.12812236
+  73471.37250464  86879.56328571 126970.39938569 153810.32708135
+ 100353.20592466 128785.64527587 138534.36062268 123947.38194992
+ 142537.85467592 117487.0019892  150142.80146105 111977.66112382
+ 121491.09484659  82687.04046006 163193.46945053  91342.9733397
+ 120679.08549413  77314.82944784 184253.5312531  143475.53247302
+ 142136.21398724 120315.40357769 115109.42927493 137026.68759827
+ 149436.85990185 157060.50554493 126588.60640945  90388.93882517
+ 159393.20193914 107581.3009758  120919.5440058  122015.51130823
+ 105609.87394243  93206.93927508 146752.32630754  92317.86148396
+ 104624.84953574 127140.85349328 175907.62588441 165036.24157915
+ 147096.73691187 108712.51468377 129660.9751117  142093.79570249
+ 186782.00968173 159165.82417472 147339.94504509 154029.01758698
+ 131937.873772   108664.46578291 138103.8023682  127468.47241841
+  70121.01073008 206001.78598306 125357.15755185 116830.60831873
+ 164138.50923192 117489.79708049 153485.42149271  54796.34779177
+  64493.70884864 127308.52143224 120819.77099362 131005.13879867
+  89572.15063947  87719.52272486 119990.62579977  90015.9757346
+  90664.49557992 107046.45785878 177794.47818206 151050.26802631
+  76721.8064013  164017.51163157 103005.69265475 167991.43711713
+ 125255.26167472 105289.83895526 115620.36546798 137354.28389122
+ 135126.74855352 109664.04167389 122387.80728057 158699.97713431
+ 122784.40450575 128214.58293689 119639.18915472 138066.31041007
+ 116397.00480337 135917.94039424  99289.63285579 200956.82454997
+ 109644.16696355 120562.11924629 150508.27723567 149368.99480019
+ 125614.59303242  82945.26963293 106918.19252747 123889.53267254
+ 141347.44021334 102040.72651328 107157.20889128 146085.07179957
+ 161385.06388341 161056.79441997 109298.95643516 127655.44534363
+ 152336.64986505 163691.50424976 139597.18034557 103271.46327904
+ 115477.70730789 104248.85827826  84281.7216126  167936.3516051
+ 138065.34214645 130070.02091272 150526.3572309  163373.62243768
+ 171010.07406828 198111.7207423  148385.81334796 169063.39244897
+ 192392.67894833 133271.23898898 149551.54030603 134804.26654295
+ 129476.16932721 125913.66233692 159237.02717187 111092.90912535
+ 180558.06825102 153268.33745017 148249.32631925 124036.8507953
+ 146357.97902912 149463.97187134  84094.96790946 151013.31341615
+ 119364.55929491 170230.94812013 137898.99312574 158951.82722238
+ 129757.7617506  169550.78697596 148080.82625598 172066.38404306
+ 141803.14173484 113388.98283963 109331.85013562 178447.82831606
+ 164290.24105577 186976.16783853  85521.91395172 187207.41996587
+ 159346.1239327  206818.86756455 185043.76204672 159703.77451601
+ 133833.09058533 127170.02804923 143649.05218333 116481.71510097
+ 124180.05674034 171258.02642464 190756.43734518 143976.72171492
+ 124802.60180272 128141.82952566 130012.57781289  85914.04606409
+ 134264.19017548 157509.59842173 145516.46086103 154620.18596476
+ 135606.22584258 145798.14387113 138287.19614097 150669.67144707
+ 167161.39172208 175957.64286868 132259.10656408 153659.7118905
+ 168416.43182248 120666.76014407 164756.57951763 117560.30864076
+ 151024.00227894 122403.76033694  86979.32461922 130275.53799512
+ 117875.80402255 111719.83979692 174062.18733568 174629.4084224
+ 111046.05081466 155731.86517034 190501.78463163 164081.26220877
+ 139528.22722481 131044.06740755  83507.60484222 127340.3744699
+ 110095.57805549 108852.8885239  170186.89831461 116550.50523758
+ 153356.83938902 134315.33359488 121697.84412957 144176.51626795
+ 187235.12088449 205649.11413789 138784.34320054 121242.0218376
+ 167128.73801314 174208.2239512  131879.19883213 153137.86450957
+ 140410.55815588 142810.07992308  81290.94588313 117422.48384885
+ 176914.17541643 168253.16069085 168314.02999068 113910.57312578
+  64550.90657551 134185.67514517 128544.33563917 153066.03687905
+ 147820.91026278 106611.36979846 116133.29436636 171445.78373403
+ 113498.21304973 104253.96870256 145654.82061083 179598.99834913
+ 107522.9837084  100964.85328304 127357.57791534  90751.61358588
+ 125559.76455686 126538.06676115 131792.25735098 149882.46440022
+ 135057.53498218 122902.00658378 122524.24473838 102787.82206909
+ 145470.27240493 157308.88155935 147353.78758976 118244.87854722
+ 103803.22876679 158565.23300989 148584.58469379 184411.271133
+ 165701.6864615  111319.18271391 120916.62854392 110725.88933713
+ 172577.35464109 140300.0410298  124098.78966182 132682.46662255
+ 148588.78129776 140873.27703426 201735.28390282 106960.34391381
+ 115610.64778752 165584.50410883 187809.07523121 182160.50061725
+ 188613.77514546 139938.83019057 125513.82780166 184652.15117216
+ 135818.84081659 158528.36145224 126778.07992628  98482.95842135
+  99452.8733957  108108.31574332 156080.80863284 144397.29786338
+ 136758.39405705 139202.3021399  131564.22260395 123864.97794786
+ 140490.76878269 137975.45159268 173188.43566552 199686.63326284
+ 152845.67411218 147972.91495068 164224.4285249  115366.27903181
+ 142279.71029229 162177.38900523 140433.41295463 167992.35572318
+ 140518.45796001  91854.21619159 146914.18358828 130454.18417841
+ 174229.45649128 125851.12260675 142066.49961062 155355.90873249
+ 134176.5449803  154921.41118965  93501.65369205 117027.46611708
+ 126712.21034335  81139.5147305   88162.23935433  78854.02857602
+ 143452.48303065 138787.36479193 163747.32062717 124360.62889832
+ 156127.91978546 143044.01120589 121179.67184962 107287.46822725
+ 195945.22278172 108248.50390898  99404.18661652 132309.84568265
+ 142228.74218507 115563.81199674 155075.24724185 155194.041907
+ 136730.4862394  131489.12856143 128963.24615943 150061.47508682
+ 101882.29710495 145063.47180683 129989.75941635 165767.373605
+ 112828.48175289 167128.54145075 147412.41541164 146229.26339589
+ 137367.58232922  60394.6622134  131714.82621486 100494.9484319 ]
+2025-06-25 07:31:53 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:53 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:31:53 ERROR Can not run the algorithm
+2025-06-25 07:31:54 INFO Run function 18 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-25 07:31:54 INFO FeHistory: [196517.22646162 136171.06477575 127168.27855775 191762.91261756
+ 152937.29368852 153468.52085401 223252.12819272  90629.30791936
+ 209846.32262809 144758.32498964 127021.38726703 214210.06439555
+ 121930.53567158 129811.27736304 119053.34156742 193756.97081925
+ 115050.45604536 158764.31020513 175987.32947873 148042.22213614
+ 146839.59261294 122599.70315724 156724.37140236  92185.42668729
+ 165126.68041393 144681.20847097 178156.31545634 243910.61250896
+ 117678.54362883 179152.73462092 151370.33493523 108876.53858508
+ 173136.27645929 119008.57599905 159518.90483171 138083.49214
+ 189016.39036837 143391.89793887 202010.40582597 146147.29398208
+ 115714.00416047 145816.46671822 104678.05400202  98663.87678707
+ 148682.54173733  91704.79752737 194610.44832761 151705.23409731
+ 162874.36550727 165218.80115113 187898.90707862 177784.2537161
+ 111911.77252771 160855.40904556 210522.95464973 199258.33872139
+  78252.77688468 165446.26640829  72351.610685   157996.02326937
+ 145532.74757215 128354.02800239 167718.5655094  125040.32869713
+ 148252.7345686  129579.91540383 151468.53019868 183447.54057323
+ 160250.63331762 151594.51064791 197086.95582149 137710.91274244
+ 125102.01914092 240610.83622972 273826.68689238 180444.60671681
+ 187049.44798227 136934.59299165  96541.96268468 153296.98608887
+ 104129.36457879 179765.83041223 182220.27030203 182359.87165606
+ 175482.68406134 160846.6544441   97957.04977167 156490.96913823
+ 131200.05773933 216881.39229336  95524.53891514 176723.71028637
+  98098.37996407 227358.09662224 297851.07249528 121160.36950443
+ 180860.47017514 137201.32894862  91722.47048844 149840.55948437
+ 126768.12623798 170796.59324635 181404.45449393 166946.18777418
+ 175507.02337585 134751.87769425 152786.90735771 163257.10507642
+ 187117.75854963 111407.81776239 125048.83998532 114694.62569059
+ 178683.85846827  96660.80268375 158284.41686602 108387.45292794
+ 129780.30833018 170989.59988997 146991.81087919 135759.15371647
+ 148893.30679133 109715.98171394 143193.9315117  172582.26939267
+ 151397.67669997 114405.58997547 116355.45090608 154019.47008006
+ 194653.90080705 141886.74492088 156672.5448303  206004.73791467
+ 200633.86892287 164248.70000219 186654.29532718 177054.97389168
+ 148475.71153582 151259.7503616  184855.96629006 191987.41330861
+ 146662.22443413 125414.16278602 184145.36674011 181878.64418929
+ 126549.71080764 126348.17483684 129081.49024395  82892.13786392
+ 118514.04036252 116539.51811872 194514.16700295  93198.3444684
+ 171317.35684149 110519.93363734 206671.51990756 206426.02966928
+  98164.23708331 216874.18468617 146783.83597031 154653.88619109
+ 158570.78113855 156638.72951532 154756.91671586 176294.7108759
+ 150452.91602206 136771.82227157 143226.77847067 189592.76092512
+ 171301.30769144 142467.86307651 151417.06051178  78647.1257741
+ 116203.71552996 130569.50050956 175199.25568562 216392.26067365
+ 120522.8389096  120843.30302122 224501.50087071 117675.78566906
+  87652.15826889 112331.43082769 152021.57159065  82009.69960522
+ 160149.44227481 198930.80354678 152092.15354916 145026.4223922
+ 153977.85371163 140257.94611011 164108.16635844 136922.27951913
+ 153858.47415627 116042.26127986 115114.12301633 196878.05188164
+  98918.68986037 163807.47330337 206689.62961665 173444.11436496
+ 128928.25221033 128702.65334115 147163.5823401  161847.77935317
+ 182585.10929037 119673.79410218 124758.59952399 110617.57844903
+ 159687.51792717 141019.10832571 171077.55892769 141425.26373603
+ 183506.28563128 154872.15561533 142456.00056419 157996.56702947
+ 124293.81801632 191854.99599606 147917.73873601 110557.65425712
+ 149758.18770133 102546.1254871  171061.83610886 110435.7124341
+ 117286.26663539 142977.62764235 111446.55796837 139367.79161505
+ 146412.84577679 137669.8776017  140336.61896415 172303.59862008
+ 196476.31399696 111741.20557323 165646.35171395 177848.38892665
+ 154036.94632736 106898.5885866  138238.10199945 157317.25400964
+ 128420.68046899 142901.19965629 122692.04913105 145826.38090351
+ 145132.80182213 126430.05303497 179111.19167782 172262.78041464
+  98464.60051619 111875.55427699 190810.28203937 128391.16388848
+ 163354.06313249 115427.11609701 152922.51389068 169944.17554992
+ 188496.04466483 126026.1732723  117461.36922583 134711.0512993
+ 107685.02869984 125785.3269373  145711.48805369 148019.078716
+ 252754.34571405 132794.69593263 119928.68060076 128652.48761062
+ 107106.49125182 144511.42023749 218323.81516802 128182.33997164
+ 231639.37135914 121208.46135881 154760.44087877 127116.97905756
+ 176806.86081673 164855.42281948 145436.11790147 167329.84204705
+ 119016.93751922 176712.87016754 249558.48397703 229962.14009081
+ 183548.17870999 199845.54438182 142023.49568234 106565.65729955
+ 126362.67481226 215337.79866374  81867.57934486 151475.22625651
+ 145352.41429404 194780.67882956 190135.54788995 146505.32529866
+ 150200.38151945 120588.17362816 272559.18615379 170818.80638169
+ 131002.24890844 171980.21627236 124072.72997551 135930.16888832
+ 225794.06681553 118170.00715874 198547.94400491 130721.45260959
+ 202598.10268944 130574.95858458 153120.2791516  182185.16283627
+ 115556.19521631 142111.31351868 150303.49243393 259719.10519421
+ 143262.94959365 197028.6015482  187795.71424249 195858.02072986
+ 308371.52600787 240171.10637988 202623.4709121  154409.15171552
+ 100296.53518659 234009.27583512 170597.61177384 191339.76006164
+ 193169.68789289 201542.77390033 169288.41986823 136537.73410494
+ 249765.47033599  82353.24100412  96469.87061424 186957.97989102
+ 160827.5408764  133390.02711159 157677.87514432 156986.4869859
+ 188116.91823049 104203.07635145 151858.12693735 173878.5857177
+ 239127.93023995 113074.08077108 167928.89182189 221968.29286624
+ 117483.4457248  124332.99765161 149338.7605536  219480.77461282
+ 140624.40658535 218970.17652364  95326.99027061 134292.707873
+ 152631.83914723 110804.47765469 159023.32765928 121859.08103138
+ 164983.90762436 147459.93773396 187255.12380008 168805.20815933
+ 185678.71911157 196147.00459973 183720.35345599 180714.94300184
+ 147990.38821904 174823.22244967 224470.92644927 202335.94310789
+ 167133.47163335 138806.66706142 115972.26933001 229094.91200762
+ 175947.6464869  158442.08353967 222428.19452355 167980.73136765
+ 197091.07407702 141197.47507815 166030.01454178 146878.51087769
+ 144368.29715005 147093.67101595 192011.45041897 219189.22545158
+ 163411.5870105  289261.83178379 152714.24742884 178710.88226699
+ 217258.33634565 177494.26699021 232456.32809378 126757.38998744
+ 194687.02827868 265908.81896746 142244.08085878 218796.62765586
+ 194090.79369584 111487.13994477 124063.63837933 171091.65101968
+ 121196.24737641 120060.71822229  76440.13841785 141640.50700855
+ 166771.21109399 233444.71598401 207976.0681065  179583.13573227
+ 240053.77986209 131159.51651774 262436.96392569 196566.99501019
+ 107380.29196168 146595.52576076 131260.5594929  161077.96544948
+  93411.79836669 212941.15977156 140892.35164311 126372.40430912
+ 165320.91316196 166279.36905887 197078.44083613  80064.91020158
+ 184449.84232773 194099.01070361 126056.04078901 239940.14844832
+ 320526.80543021 135291.7850465  150194.32649149 150779.82434405
+ 132257.11389526  98328.94992704 123516.63317104 192322.98619375
+ 147178.86944172 266648.4532139  124883.77622792 145266.60884209
+ 143469.23348081 246131.27388703 179649.75419184 156615.56756664
+ 148514.48662752  81712.08101286 107783.39355199 125452.36033737
+ 166135.20321948 113899.74872452 163809.72436635 218837.30884706
+ 163620.28404632 154803.67361469 148212.32604975 139522.53962583
+ 204039.31865204 123701.29204082 159619.50025045 116457.58601807
+ 295181.83635579 123497.38186732 219790.39478583  98408.38582761
+ 259325.08934129 181978.37496159 139588.18766581 155276.38084274
+ 161317.40121883  89282.40636565 182678.34016241 171607.95410671
+ 251640.83779313 138489.80963992 166489.32665202 197870.16859491
+ 198239.95653309 178054.84391572 192007.55771794 176710.28612757
+ 141012.40461899 191737.13097029 133031.85887408 155731.03810117
+ 133775.08590407 135478.90167285 171480.0751296  155042.5486991
+ 129428.29387874 192856.93884003 210623.31765284 218241.2502873
+  94727.89868627 169438.34757953  94016.93795153  96914.83840608]
+2025-06-25 07:31:54 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:54 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:31:54 ERROR Can not run the algorithm
+2025-06-25 07:31:54 INFO Run function 19 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-25 07:31:54 INFO FeHistory: [153357.28259491 204049.62687436 139217.90144299 214896.61287806
+ 140639.90185253 191953.50723901 257545.28638421 230954.54551927
+ 153905.50623159 237934.15840242 153080.09865771 123971.07108837
+ 226787.82728718 202271.77188845 140529.13319376  95092.81726217
+ 203898.08452878 230736.60640933 225181.37277099 176395.96717469
+ 210088.89537649 136230.05175989 115848.18698779 195988.03718769
+ 138810.02863324 219002.02891249 315643.22019943 290367.91742063
+ 169853.22478307 148757.49044158 152378.57425317 200746.55456921
+ 165088.13318711 162275.5144863  168599.2389692  154014.54027458
+ 159632.05985483 197358.61575256 176242.51759422 197730.65371372
+ 170546.5612621  153350.13355738 218110.91874948 173394.37999078
+ 196111.97102415 168461.59619268 169852.67567629 162791.45722577
+ 105727.81004744 200831.99787228 204163.05249499 148265.6157578
+ 162654.45644595 144255.66667243 186782.27125156 204768.80650974
+ 100053.67367932 205243.40395496 153218.04151531 180651.22638919
+ 169560.60871927 150494.33961177 168950.57808177 169187.44741804
+ 226519.65635914 200871.92329991 103513.66162868 153125.45796579
+ 122776.2265767  155122.81850903  97194.54580168 158548.72879401
+ 129644.994389   113451.49729346 205650.41024385 172637.39494901
+ 159073.04372084 149070.17324751 131247.21321164 170236.19447924
+ 131656.01183274 200905.76110098 213565.08024219 209084.12463117
+ 258766.40041515 179467.87733467 151002.37684753 176451.80035259
+  94428.1071612  146715.84298836 170174.7861574  163929.27154284
+ 181357.74058349 223240.38842154 130092.28130644 120836.97118503
+ 172964.65493465 197359.34775987 127593.75291197 111669.30822731
+ 232187.65795808 212000.5650469  271523.1583555  164320.19645001
+ 220529.32391256 127474.75319351 134023.09259987 187371.41598552
+ 108904.68745214 184351.15409113 193938.17711818 161497.97247322
+ 115649.0085206  140200.1809649  138996.39665577 206153.74250249
+ 149444.90797574 238399.83353701 148182.26308366 130013.65308829
+ 216476.17595202 194061.70611171 173333.6287261  136034.71087308
+  85886.69758938 206658.7456382  117196.41924936 152353.4152693
+ 164168.20877598 183761.14137109 158515.8714273  122202.61875138
+ 162379.60126655 204642.54664787 134415.03314407 141960.76527326
+ 142728.52485637 157714.03218285 229522.27285756 225662.0025481
+ 166958.13133727 194151.81776355 265827.45746478 123487.06572599
+ 186501.14068351 227640.83947024 127213.61067812  92120.51627966
+ 168968.93825908 156612.36918118 132832.65931879 235712.01910694
+ 191083.91690132 120853.3593478  230108.7802329  182905.21489412
+ 169700.72793514 246456.61192024 186396.55715889 189863.82585586
+ 233371.92473423 188085.02035638 117946.93046517  90305.20998696
+  81837.41904072 156178.37065907 165336.11849789 196490.23842593
+ 163603.81252532 205145.55570388 140483.43529537 217199.19656309
+ 113738.47403046 202735.34014472 216631.36215672 125680.19760931
+ 188748.82434759 230639.16523478 183722.6703605  126164.32301573
+  63967.78701254 147394.44457737 186259.28344601 203199.76232566
+ 137100.55878334 175715.66805108 141382.80354345 198101.167532
+ 114987.70718341 219967.24721555 180048.22842284 161548.52293127
+ 222505.08005055 204553.10835916 132126.3785934  170178.1091228
+ 168208.95184429 193711.3866583  156568.16836419 121813.64543785
+  81756.93744516 123424.26770414  84015.94353874 205269.4566127
+ 168196.92130109 180396.16854948 123090.05855209 198781.17016631
+ 153536.81364103 245204.4231852  139087.80872421 172456.94855821
+ 159649.29726615  86514.73046548 168496.34930019 190867.66228139
+ 124745.0579589  158616.44574992  93751.87409027 111985.61781964
+ 167900.73827377 240071.13319206 249264.82413394 231805.29406377
+ 176466.31838897 192300.30724683 102277.95261166 160046.59269906
+ 171903.94362703 271181.8676843  160323.47068607 235154.2091093
+ 210996.52190835 194073.33141211 163550.52046203 208639.00786101
+ 174955.98737915 143497.02114527 174894.05490949 169687.99847892
+ 135926.22944389 153432.01619876  84170.8772778  105526.91187499
+ 199576.34503108 110986.05244448 114760.18414566 199377.64280956
+  80397.45888884 200538.50053048 155300.10991265 182306.78964355
+ 191230.83927731 182738.38956401 131565.54152416 191208.77355118
+ 139215.87380766 208229.77255592 179250.56639162 138798.75447784
+ 144301.0713952  127154.61346729 235754.89778646 263900.42074176
+ 187080.51556934 226042.71989268 207629.94713848 252467.46472532
+ 146376.94116362 136421.78570097 154905.34367904 260738.16022265
+ 141777.95481724 244098.65144616 191637.85941469 117874.85555658
+ 182110.21880665 185181.54892346 227146.79282486 172505.65057165
+ 129357.91440746 128921.89848748 222132.51963439 168422.05025723
+ 173167.41286201 163621.19470273 234978.2221135  196744.86120954
+ 249296.78711324 307045.47122842 104071.86898533  87505.50922064
+ 200416.66743429 229224.37677257 171683.75289703 233383.91050251
+  95058.28808434 128557.49878692 158475.15677494 215470.6545247
+ 238594.55451734 159259.65833499 284012.86333192 211763.92719846
+ 278067.07545147 188350.57420926 257306.67769147 147198.09501363
+ 174154.15198954 232689.18324349 202267.67204029 111765.22447293
+ 184473.38593148 192262.4665627  232684.8352612  172359.07565671
+ 157231.71038347 191950.16285234  94391.28755245 101754.62437543
+  98059.60976474 213651.72440594 178473.84928031 180621.33114561
+ 332576.35276341 220690.60753578 164112.2364606  169613.60960893
+ 163879.24824628 172037.18897395 211259.74283327 323487.3991307
+ 317863.87244307 189023.5938422  140408.56332514 209214.15520492
+ 185077.27978246 141205.29522003 201107.82877512 150030.41367808
+ 237100.72787341 142415.20307047 213788.17316779 307546.67681446
+ 147138.55936744 258649.656467    99711.94521784 139558.34530181
+ 259627.10930749 156610.47203109 175463.9847497  210536.15779133
+  88090.11600663 161090.29969739 151844.34142868 180275.90519394
+ 279974.26463327 266674.99383857 147483.91792723 180657.37452463
+ 181380.77164478 157214.06775488 145364.07994462 230334.788405
+ 198862.7679954  220101.15118446 136622.46770929 186896.41071895
+ 220612.22393929 129281.03323406 172652.00735033 276391.57603793
+ 181405.89244352 225643.9398658  265354.09591832 280400.75708988
+ 121682.063621   199196.03774168 124342.91383189 162849.16361349
+ 169545.53258536 109561.59109852 257304.8885509  279232.44086623
+ 151382.7356766  211571.08380172 151181.21575161 154627.55165681
+ 172305.7688431  205087.26445538 160348.83388958 192958.29562595
+ 260861.29615427 133729.40106919 131587.54730691 214542.86685197
+ 161426.05550782 247467.92452893 190021.93172063 201129.34513536
+ 182072.893394   187280.30202174 192087.39622538 137233.70622542
+ 219743.41926669 117831.60125388 244884.40833523 202034.01461548
+  98182.97062082 175555.95899753 167521.62872069 124812.83580139
+  93295.59172925 223997.52207722 158301.65116017 221180.29474324
+ 158940.85964135 219527.44446706 185446.43468266 203820.08748045
+ 145267.23924606 138769.70092275 132439.33349896 174553.98896668
+ 240891.75004694 184230.4010627  159564.8617139  294259.77635462
+ 134310.40130682 217226.10352674 178208.86901184 202184.03007966
+ 133990.01831541 164872.47785586 127329.29879817 233839.95731204
+ 207270.98703521 212345.49023257 145068.68962201 211221.70130653
+ 172127.28086671 112034.51883592 101717.29656739 155060.27842314
+ 232737.64291778 107319.90236822 186452.34299372 161572.36961232
+ 276372.52683818 261975.40909391 179766.36232925 143763.72823672
+ 188519.99369892 150679.77176964  83367.67989324 170952.56679269
+ 153429.31413359 183890.86397396 157782.47718306 147648.4447128
+ 178793.56816575 203540.67614539 121279.40906981 110255.2609005
+ 120586.99065568 235279.19621485 246908.15158352 227863.41036698
+ 168616.16330986 224625.00507864 138468.56026449 258759.52119845
+ 187789.80643695 240883.49257623 387125.6206757  283064.86782679
+ 193814.95728123 121243.39411415 178356.04225732 185891.03803022
+  90554.78454102 266922.63074766 192318.30787791 195509.92539643
+ 313942.9494293  132705.09743182 171352.20181113 150998.56579992
+ 243033.29157035 200169.80771099 108055.60899519 178140.8269048
+ 137171.34190443 159215.38166559 131108.2024381  198227.94610208
+ 212736.37984004 107551.57166496 264402.13252263 151329.65085224]
+2025-06-25 07:31:54 INFO Expected Optimum FE: -5000
+2025-06-25 07:31:54 INFO Unimodal AOCC mean: nan
+2025-06-25 07:31:54 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:31:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:31:54 INFO AOCC mean: 0.0000
+2025-06-25 07:31:54 INFO Weighed AOCC mean: nan
+2025-06-25 07:31:54 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:32:44 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0383
+2025-06-25 07:32:44 INFO FeHistory: [145886.74574175 114858.2298203  114356.65192963 ...  -4317.89999964
+  11643.65425629  36616.2434359 ]
+2025-06-25 07:32:44 INFO Expected Optimum FE: -5000
+2025-06-25 07:32:44 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:33:29 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.2226
+2025-06-25 07:33:29 INFO FeHistory: [140965.79272632  82489.49964485 161767.46860535 ...  -4470.39999938
+  -4470.39060557  -4470.39709578]
+2025-06-25 07:33:29 INFO Expected Optimum FE: -5000
+2025-06-25 07:33:29 INFO Good algorithm:
+Algorithm Name: IslandModelDifferentialEvolution
+import numpy as np
+import random
+
+# Name: IslandModelDifferentialEvolution
+# Description: Employs an island model with differential evolution for exploring multiple basins in multimodal landscapes.
+
+class IslandModelDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 num_islands: int = 5, population_size: int = 20, crossover_rate: float = 0.7,
+                 mutation_rate: float = 0.5, migration_interval: int = 500, migration_size: int = 2):
+
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_rate = mutation_rate
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+            self.islands.append({'population': population, 'fitness': np.full(self.population_size, float('inf'))})
+
+
+    def differential_evolution(self, island, objective_function):
+        population = island['population']
+        fitness = island['fitness']
+        
+        for i in range(self.population_size):
+            if self.eval_count >= self.budget:
+                break
+
+            # Mutation
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+            mutant = population[a] + self.mutation_rate * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate:
+                    trial_vector[j] = mutant[j]
+
+            # Evaluation
+            trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]
+            self.eval_count += 1
+            
+            # Selection
+            if trial_fitness < fitness[i]:
+                population[i] = trial_vector
+                fitness[i] = trial_fitness
+
+                if trial_fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = trial_fitness
+                    self.best_solution_overall = trial_vector.copy()
+
+        island['population'] = population
+        island['fitness'] = fitness
+        return island
+
+
+    def migrate_individuals(self):
+        # Select migrants from each island
+        migrants = []
+        for island in self.islands:
+            island_indices = np.argsort(island['fitness'])[:self.migration_size]  # Best individuals
+            migrants.append(island['population'][island_indices].copy())
+
+        # Migrate to the next island (circular shift)
+        for i in range(self.num_islands):
+            target_island_index = (i + 1) % self.num_islands
+            self.islands[target_island_index]['population'][-self.migration_size:] = migrants[i]
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+             self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+             self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        generation = 0
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.islands[i] = self.differential_evolution(self.islands[i], objective_function)
+
+            if generation % self.migration_interval == 0:
+                self.migrate_individuals()
+            
+            generation += 1
+
+        if self.best_solution_overall is None and self.dim > 0 : # Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-25 07:33:29 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:34:16 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0646
+2025-06-25 07:34:16 INFO FeHistory: [100950.33161866 262719.02090513 164610.51691982 ...  48197.94234034
+  46253.85706852  73405.82530681]
+2025-06-25 07:34:16 INFO Expected Optimum FE: -5000
+2025-06-25 07:34:16 INFO Unimodal AOCC mean: nan
+2025-06-25 07:34:16 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:34:16 INFO Multimodal (multiple components) AOCC mean: 0.1085
+2025-06-25 07:34:16 INFO AOCC mean: 0.1085
+2025-06-25 07:34:16 INFO Weighed AOCC mean: nan
+2025-06-25 07:37:44 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:38:30 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.1645
+2025-06-25 07:38:30 INFO FeHistory: [141975.61048256 177948.28025187 159663.04630342 ...  -4469.45208507
+  -4469.45208507  -4469.45208507]
+2025-06-25 07:38:30 INFO Expected Optimum FE: -5000
+2025-06-25 07:38:30 INFO Good algorithm:
+Algorithm Name: AdaptiveMultiIslandDE
+import numpy as np
+import random
+
+# Name: AdaptiveMultiIslandDE
+# Description: Integrates adaptive crossover, migration and island-specific mutation factors to enhance exploration across multimodal landscapes.
+# Code:
+class AdaptiveMultiIslandDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5,
+                 population_size: int = 20, migration_interval: int = 500, migration_size: int = 2):
+        """
+        Initializes the Adaptive Multi-Island Differential Evolution algorithm.
+
+        Args:
+            budget (int): The maximum number of function evaluations.
+            dim (int): The dimensionality of the problem.
+            lower_bounds (list[float]): A list of lower bounds for each dimension.
+            upper_bounds (list[float]): A list of upper bounds for each dimension.
+            num_islands (int): The number of islands to use in the island model.
+            population_size (int): The size of the population on each island.
+            migration_interval (int): How often migration happens between islands.
+            migration_size (int): Number of individuals that migrate between islands.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands and populations
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds,
+                                            size=(self.population_size, self.dim))
+            fitness = np.full(self.population_size, float('inf'))  # Initialize fitness array
+            self.islands.append({'population': population, 'fitness': fitness, 'mutation_factor': 0.5})  # Island-specific mutation factor
+
+        self.crossover_rate = 0.7  # Initial crossover rate
+        self.adaptive_crossover_learning_rate = 0.1  # Learning rate for adaptive crossover
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the objective function using the Adaptive Multi-Island Differential Evolution algorithm.
+
+        Args:
+            objective_function (callable): The objective function to optimize. Takes a 2D numpy array (N,dim) and returns fitnesses.
+            acceptance_threshold (float, optional): The acceptance threshold for considering a solution as optimal. Defaults to 1e-8.
+
+        Returns:
+            tuple: A tuple containing the best solution, its fitness, and optimization information.
+        """
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.evolve_island(i, objective_function)
+
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                self.migrate_individuals()
+
+            # Adaptive Crossover Rate update. Adapt crossover rate based on improvement
+            if self.eval_count % 200 == 0 and self.eval_count > 0: # Periodically adjust crossover rate
+                island_index = random.randint(0, self.num_islands-1)
+                pre_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+                self.evolve_island(island_index, objective_function) #Evolve the island to calculate new average
+                post_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+
+                if post_crossover_fitness_average < pre_crossover_fitness_average:
+                    self.crossover_rate = min(1.0, self.crossover_rate + self.adaptive_crossover_learning_rate)
+                else:
+                     self.crossover_rate = max(0.0, self.crossover_rate - self.adaptive_crossover_learning_rate) #Decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'final_crossover_rate': self.crossover_rate
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def evolve_island(self, island_index: int, objective_function: callable):
+        """
+        Evolves a single island using differential evolution with island-specific mutation factor.
+
+        Args:
+            island_index (int): The index of the island to evolve.
+            objective_function (callable): The objective function to evaluate.
+        """
+        island = self.islands[island_index]
+        population = island['population']
+        fitness = island['fitness']
+        mutation_factor = island['mutation_factor']
+        new_population = np.copy(population)
+
+        for i in range(self.population_size):
+            # Differential Evolution Mutation
+            idxs = [idx for idx in range(self.population_size) if idx != i]
+            a, b, c = random.sample(idxs, 3)
+            mutant = population[a] + mutation_factor * (population[b] - population[c])  # DE/rand/1 strategy
+
+            # Crossover (Binomial)
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                    trial_vector[j] = mutant[j]
+
+            # Boundary Handling
+            trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds)
+            new_population[i] = trial_vector
+        
+        #Evaluate new pop all at once:
+        new_fitnesses = objective_function(new_population) # Eval new population all at once
+
+        self.eval_count += self.population_size #Update total evaluations after eval
+
+        if len(new_fitnesses) == self.population_size: #Verify proper dimensions are returned:
+            # Selection
+            for i in range(self.population_size):
+                if new_fitnesses[i] < fitness[i]:
+                    island['population'][i] = new_population[i]
+                    island['fitness'][i] = new_fitnesses[i]
+
+                    # Update global best
+                    if new_fitnesses[i] < self.best_fitness_overall:
+                        self.best_fitness_overall = new_fitnesses[i]
+                        self.best_solution_overall = new_population[i]
+
+
+    def migrate_individuals(self):
+        """
+        Migrates individuals between islands to promote diversity.
+        """
+        #For each island, select individuals to send/receive
+        for i in range(self.num_islands):
+            #Choose destination
+            destination_island_index = (i + 1) % self.num_islands
+
+            #Select migrating individuals (best from source and random from destination)
+            source_island = self.islands[i]
+            destination_island = self.islands[destination_island_index]
+
+            #Indexes sorted by increasing fitness.
+            source_island_sorted_indexes = np.argsort(source_island['fitness'])
+            migrating_individuals = source_island['population'][source_island_sorted_indexes[:self.migration_size]] #Best candidates always migrate
+
+            #Choose individuals to be replaced in destination:
+            destination_indexes = np.random.choice(self.population_size, self.migration_size, replace = False) #Sample N from population and replace them.
+
+            #Perform the migration:
+            destination_island['population'][destination_indexes] = migrating_individuals
+            # Re-evaluate fitness in destination:
+            destination_island['fitness'][destination_indexes] = objective_function(destination_island['population'][destination_indexes])
+            self.eval_count+= self.migration_size
+2025-06-25 07:38:31 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:39:15 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.1038
+2025-06-25 07:39:15 INFO FeHistory: [182108.13674147 186184.07904218 148970.48467328 ...  -4994.29837339
+  -4994.02501848  -4996.46343315]
+2025-06-25 07:39:15 INFO Expected Optimum FE: -5000
+2025-06-25 07:39:15 INFO Good algorithm:
+Algorithm Name: AdaptiveMultiIslandDE
+import numpy as np
+import random
+
+# Name: AdaptiveMultiIslandDE
+# Description: Integrates adaptive crossover, migration and island-specific mutation factors to enhance exploration across multimodal landscapes.
+# Code:
+class AdaptiveMultiIslandDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5,
+                 population_size: int = 20, migration_interval: int = 500, migration_size: int = 2):
+        """
+        Initializes the Adaptive Multi-Island Differential Evolution algorithm.
+
+        Args:
+            budget (int): The maximum number of function evaluations.
+            dim (int): The dimensionality of the problem.
+            lower_bounds (list[float]): A list of lower bounds for each dimension.
+            upper_bounds (list[float]): A list of upper bounds for each dimension.
+            num_islands (int): The number of islands to use in the island model.
+            population_size (int): The size of the population on each island.
+            migration_interval (int): How often migration happens between islands.
+            migration_size (int): Number of individuals that migrate between islands.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands and populations
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds,
+                                            size=(self.population_size, self.dim))
+            fitness = np.full(self.population_size, float('inf'))  # Initialize fitness array
+            self.islands.append({'population': population, 'fitness': fitness, 'mutation_factor': 0.5})  # Island-specific mutation factor
+
+        self.crossover_rate = 0.7  # Initial crossover rate
+        self.adaptive_crossover_learning_rate = 0.1  # Learning rate for adaptive crossover
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the objective function using the Adaptive Multi-Island Differential Evolution algorithm.
+
+        Args:
+            objective_function (callable): The objective function to optimize. Takes a 2D numpy array (N,dim) and returns fitnesses.
+            acceptance_threshold (float, optional): The acceptance threshold for considering a solution as optimal. Defaults to 1e-8.
+
+        Returns:
+            tuple: A tuple containing the best solution, its fitness, and optimization information.
+        """
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.evolve_island(i, objective_function)
+
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                self.migrate_individuals()
+
+            # Adaptive Crossover Rate update. Adapt crossover rate based on improvement
+            if self.eval_count % 200 == 0 and self.eval_count > 0: # Periodically adjust crossover rate
+                island_index = random.randint(0, self.num_islands-1)
+                pre_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+                self.evolve_island(island_index, objective_function) #Evolve the island to calculate new average
+                post_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+
+                if post_crossover_fitness_average < pre_crossover_fitness_average:
+                    self.crossover_rate = min(1.0, self.crossover_rate + self.adaptive_crossover_learning_rate)
+                else:
+                     self.crossover_rate = max(0.0, self.crossover_rate - self.adaptive_crossover_learning_rate) #Decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'final_crossover_rate': self.crossover_rate
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def evolve_island(self, island_index: int, objective_function: callable):
+        """
+        Evolves a single island using differential evolution with island-specific mutation factor.
+
+        Args:
+            island_index (int): The index of the island to evolve.
+            objective_function (callable): The objective function to evaluate.
+        """
+        island = self.islands[island_index]
+        population = island['population']
+        fitness = island['fitness']
+        mutation_factor = island['mutation_factor']
+        new_population = np.copy(population)
+
+        for i in range(self.population_size):
+            # Differential Evolution Mutation
+            idxs = [idx for idx in range(self.population_size) if idx != i]
+            a, b, c = random.sample(idxs, 3)
+            mutant = population[a] + mutation_factor * (population[b] - population[c])  # DE/rand/1 strategy
+
+            # Crossover (Binomial)
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                    trial_vector[j] = mutant[j]
+
+            # Boundary Handling
+            trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds)
+            new_population[i] = trial_vector
+        
+        #Evaluate new pop all at once:
+        new_fitnesses = objective_function(new_population) # Eval new population all at once
+
+        self.eval_count += self.population_size #Update total evaluations after eval
+
+        if len(new_fitnesses) == self.population_size: #Verify proper dimensions are returned:
+            # Selection
+            for i in range(self.population_size):
+                if new_fitnesses[i] < fitness[i]:
+                    island['population'][i] = new_population[i]
+                    island['fitness'][i] = new_fitnesses[i]
+
+                    # Update global best
+                    if new_fitnesses[i] < self.best_fitness_overall:
+                        self.best_fitness_overall = new_fitnesses[i]
+                        self.best_solution_overall = new_population[i]
+
+
+    def migrate_individuals(self):
+        """
+        Migrates individuals between islands to promote diversity.
+        """
+        #For each island, select individuals to send/receive
+        for i in range(self.num_islands):
+            #Choose destination
+            destination_island_index = (i + 1) % self.num_islands
+
+            #Select migrating individuals (best from source and random from destination)
+            source_island = self.islands[i]
+            destination_island = self.islands[destination_island_index]
+
+            #Indexes sorted by increasing fitness.
+            source_island_sorted_indexes = np.argsort(source_island['fitness'])
+            migrating_individuals = source_island['population'][source_island_sorted_indexes[:self.migration_size]] #Best candidates always migrate
+
+            #Choose individuals to be replaced in destination:
+            destination_indexes = np.random.choice(self.population_size, self.migration_size, replace = False) #Sample N from population and replace them.
+
+            #Perform the migration:
+            destination_island['population'][destination_indexes] = migrating_individuals
+            # Re-evaluate fitness in destination:
+            destination_island['fitness'][destination_indexes] = objective_function(destination_island['population'][destination_indexes])
+            self.eval_count+= self.migration_size
+2025-06-25 07:39:15 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:39:59 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:39:59 INFO FeHistory: [251246.37476764 241744.43064348 152399.88895078 ...  -3788.7365183
+  -3241.25453105  -3494.61294866]
+2025-06-25 07:39:59 INFO Expected Optimum FE: -5000
+2025-06-25 07:39:59 INFO Unimodal AOCC mean: nan
+2025-06-25 07:39:59 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:39:59 INFO Multimodal (multiple components) AOCC mean: 0.0894
+2025-06-25 07:39:59 INFO AOCC mean: 0.0894
+2025-06-25 07:39:59 INFO Weighed AOCC mean: nan
+2025-06-25 07:39:59 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:40:47 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.1673
+2025-06-25 07:40:47 INFO FeHistory: [101825.690478   160037.19823062 175722.41625865 ...  -4317.77616372
+  -4317.77616378  -4317.77616375]
+2025-06-25 07:40:47 INFO Expected Optimum FE: -5000
+2025-06-25 07:40:47 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridIslandDE
+import numpy as np
+import random
+
+# Name: AdaptiveHybridIslandDE
+# Description: Combines island model with adaptive crossover rate and migration strategy for improved exploration.
+# Code:
+class AdaptiveHybridIslandDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5,
+                 population_size: int = 20, crossover_rate: float = 0.7, mutation_factor: float = 0.5,
+                 migration_interval: int = 500, migration_size: int = 2, adaptive_crossover_learning_rate: float = 0.1):
+        """
+        Initializes the Adaptive Hybrid Island Differential Evolution algorithm.
+
+        Args:
+            budget (int): The maximum number of function evaluations.
+            dim (int): The dimensionality of the problem.
+            lower_bounds (list[float]): A list of lower bounds for each dimension.
+            upper_bounds (list[float]): A list of upper bounds for each dimension.
+            num_islands (int): The number of islands to use in the island model.
+            population_size (int): The size of the population on each island.
+            crossover_rate (float): Initial crossover rate for DE.
+            mutation_factor (float): Mutation factor for DE.
+            migration_interval (int): How often migration happens.
+            migration_size (int): Number of individuals migrating.
+            adaptive_crossover_learning_rate (float): Learning rate for adapting crossover rate.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_factor = mutation_factor
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+        self.adaptive_crossover_learning_rate = adaptive_crossover_learning_rate
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands and populations
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds,
+                                            size=(self.population_size, self.dim))
+            fitness = np.full(self.population_size, float('inf'))  # Initialize fitness array
+            self.islands.append({'population': population, 'fitness': fitness})
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Optimizes the objective function using the Adaptive Island Differential Evolution algorithm.
+
+        Args:
+            objective_function (callable): The objective function to optimize.  Takes a 2D numpy array (N,dim) and returns fitnesses.
+            acceptance_threshold (float, optional): The acceptance threshold for considering a solution as optimal. Defaults to 1e-8.
+
+        Returns:
+            tuple: A tuple containing the best solution, its fitness, and optimization information.
+        """
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.evolve_island(i, objective_function)
+
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                self.migrate_individuals() # Implement migration
+
+            # Adaptive Crossover Rate update.
+            if self.eval_count % 200 == 0 and self.eval_count > 0: # Periodically adjust crossover rate
+                island_index = random.randint(0, self.num_islands-1)
+                pre_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+                self.evolve_island(island_index, objective_function)
+                post_crossover_fitness_average = np.mean(self.islands[island_index]['fitness'])
+
+                if post_crossover_fitness_average < pre_crossover_fitness_average:
+                    self.crossover_rate = min(1.0, self.crossover_rate + self.adaptive_crossover_learning_rate)
+                else:
+                     self.crossover_rate = max(0.0, self.crossover_rate - self.adaptive_crossover_learning_rate) #Decay
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'final_crossover_rate': self.crossover_rate,
+             'mutation_factor': self.mutation_factor,
+            'num_islands': self.num_islands,
+            'population_size': self.population_size,
+            'migration_interval': self.migration_interval,
+            'migration_size': self.migration_size
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def evolve_island(self, island_index: int, objective_function: callable):
+        """
+        Evolves a single island using differential evolution.
+
+        Args:
+            island_index (int): The index of the island to evolve.
+            objective_function (callable): The objective function to evaluate.
+        """
+        island = self.islands[island_index]
+        population = island['population']
+        fitness = island['fitness']
+        new_population = np.copy(population)
+
+        for i in range(self.population_size):
+            # Differential Evolution Mutation
+            idxs = [idx for idx in range(self.population_size) if idx != i]
+            a, b, c = random.sample(idxs, 3)
+            mutant = population[a] + self.mutation_factor * (population[b] - population[c])  # DE/rand/1 strategy
+
+            # Crossover (Binomial)
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                    trial_vector[j] = mutant[j]
+
+            # Boundary Handling
+            trial_vector = np.clip(trial_vector, self.lower_bounds, self.upper_bounds)
+            new_population[i] = trial_vector
+
+        #Evaluate new pop all at once:
+        new_fitnesses = objective_function(new_population) # Eval new population all at once
+
+        self.eval_count += self.population_size #Update total evaluations after eval
+        
+        if len(new_fitnesses) == self.population_size: #Verify proper dimensions are returned:
+            # Selection
+            for i in range(self.population_size):
+                if new_fitnesses[i] < fitness[i]:
+                    island['population'][i] = new_population[i]
+                    island['fitness'][i] = new_fitnesses[i]
+
+                    # Update global best
+                    if new_fitnesses[i] < self.best_fitness_overall:
+                        self.best_fitness_overall = new_fitnesses[i]
+                        self.best_solution_overall = new_population[i]
+
+    def migrate_individuals(self):
+        """
+        Migrates individuals between islands to promote diversity.
+        """
+        #For each island, select individuals to send/receive
+        for i in range(self.num_islands):
+            #Choose destination
+            destination_island_index = (i + 1) % self.num_islands
+
+            #Select migrating individuals (best from source and random from destination)
+            source_island = self.islands[i]
+            destination_island = self.islands[destination_island_index]
+
+            #Indexes sorted by increasing fitness.
+            source_island_sorted_indexes = np.argsort(source_island['fitness'])
+            migrating_individuals = source_island['population'][source_island_sorted_indexes[:self.migration_size]] #Best candidates always migrate
+
+            #Choose individuals to be replaced in destination:
+            destination_indexes = np.random.choice(self.population_size, self.migration_size, replace = False) #Sample N from population and replace them.
+
+            #Perform the migration:
+            destination_island['population'][destination_indexes] = migrating_individuals
+            # Re-evaluate fitness in destination:
+            destination_island['fitness'][destination_indexes] = objective_function(destination_island['population'][destination_indexes])
+            self.eval_count+= self.migration_size
+2025-06-25 07:40:47 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:41:33 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0001
+2025-06-25 07:41:33 INFO FeHistory: [178978.05665579 195111.51586436 151862.07772774 ...  -4885.17780176
+  -4857.173569    -4830.58396755]
+2025-06-25 07:41:33 INFO Expected Optimum FE: -5000
+2025-06-25 07:41:33 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:42:20 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:42:20 INFO FeHistory: [201546.39344021 171496.64688622 162448.4854608  ...  -4284.17866183
+  -4323.60752009  -4247.71386001]
+2025-06-25 07:42:20 INFO Expected Optimum FE: -5000
+2025-06-25 07:42:20 INFO Unimodal AOCC mean: nan
+2025-06-25 07:42:20 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:42:20 INFO Multimodal (multiple components) AOCC mean: 0.0558
+2025-06-25 07:42:20 INFO AOCC mean: 0.0558
+2025-06-25 07:42:20 INFO Weighed AOCC mean: nan
+2025-06-25 07:42:20 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:42:20 ERROR Can not run the algorithm
+2025-06-25 07:42:21 INFO Run function 16 complete. FEHistory len: 1500, AOCC: 0.0000
+2025-06-25 07:42:21 INFO FeHistory: [208824.5542487  162986.26133539 192076.26301834 ... 107163.57541004
+ 121440.7043931  100587.13361548]
+2025-06-25 07:42:21 INFO Expected Optimum FE: -5000
+2025-06-25 07:42:21 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:42:21 ERROR Can not run the algorithm
+2025-06-25 07:42:22 INFO Run function 18 complete. FEHistory len: 1500, AOCC: 0.0000
+2025-06-25 07:42:22 INFO FeHistory: [149676.76899141 211331.75804369 161215.9637758  ... 122102.23365172
+  96036.45231545 184628.05549926]
+2025-06-25 07:42:22 INFO Expected Optimum FE: -5000
+2025-06-25 07:42:22 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:42:22 ERROR Can not run the algorithm
+2025-06-25 07:42:23 INFO Run function 19 complete. FEHistory len: 1500, AOCC: 0.0000
+2025-06-25 07:42:23 INFO FeHistory: [185222.63741388 225343.27526146 143282.30600545 ... 166840.22975303
+ 167453.82814761 111212.0790912 ]
+2025-06-25 07:42:23 INFO Expected Optimum FE: -5000
+2025-06-25 07:42:23 INFO Unimodal AOCC mean: nan
+2025-06-25 07:42:23 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:42:23 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:42:23 INFO AOCC mean: 0.0000
+2025-06-25 07:42:23 INFO Weighed AOCC mean: nan
+2025-06-25 07:42:23 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:43:57 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:43:57 INFO FeHistory: [106152.22993794 169440.96131764 112131.78388853 ...  33322.64709699
+  33322.64709699  33322.64709699]
+2025-06-25 07:43:57 INFO Expected Optimum FE: -5000
+2025-06-25 07:43:57 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:45:27 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:45:27 INFO FeHistory: [186669.44527893 154219.75113237  90022.04386007 ...   6349.07152379
+   6349.07152379   6349.07152379]
+2025-06-25 07:45:27 INFO Expected Optimum FE: -5000
+2025-06-25 07:45:27 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:46:54 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:46:54 INFO FeHistory: [126353.97920497  65794.2309922  163041.18586326 ...  15252.24836098
+  15252.24836098  15252.24836098]
+2025-06-25 07:46:54 INFO Expected Optimum FE: -5000
+2025-06-25 07:46:54 INFO Unimodal AOCC mean: nan
+2025-06-25 07:46:54 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:46:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 07:46:54 INFO AOCC mean: 0.0000
+2025-06-25 07:46:54 INFO Weighed AOCC mean: nan
+2025-06-25 07:47:21 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-25 07:48:11 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.5456
+2025-06-25 07:48:11 INFO FeHistory: [ 91356.98503909 152141.32060263 152119.56255998 ...  -4999.90811815
+  -4999.91639678  -5000.        ]
+2025-06-25 07:48:11 INFO Expected Optimum FE: -5000
+2025-06-25 07:48:11 INFO Good algorithm:
+Algorithm Name: AdaptiveIslandDifferentialEvolution
+import numpy as np
+import random
+
+# Name: AdaptiveIslandDifferentialEvolution
+# Description: Employs an island model with adaptive differential evolution, dynamically adjusting parameters and migration based on island performance and landscape features detected during the search.
+# Code:
+class AdaptiveIslandDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 4, population_size: int = 25, initial_crossover_rate: float = 0.7, initial_mutation_factor: float = 0.5, migration_interval: int = 500, migration_size: int = 5, local_search_probability: float = 0.1):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = int(num_islands)
+        self.population_size = int(population_size)
+        self.initial_crossover_rate = float(initial_crossover_rate)
+        self.initial_mutation_factor = float(initial_mutation_factor)
+        self.migration_interval = int(migration_interval)
+        self.migration_size = int(migration_size)
+        self.local_search_probability = float(local_search_probability)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.populations = []
+        self.fitness_values = []
+        self.crossover_rates = [self.initial_crossover_rate] * self.num_islands
+        self.mutation_factors = [self.initial_mutation_factor] * self.num_islands
+        self.island_success_rates = [0.0] * self.num_islands
+        self.island_age = [0] * self.num_islands  #Track island age
+
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.populations.append(population)
+            self.fitness_values.append(np.full(self.population_size, float('inf')))  # Initialize fitnesses
+
+    def local_search(self, individual, objective_function):
+        """Performs a simple local search around an individual."""
+        original_fitness = objective_function(individual.reshape(1, -1))[0]
+        best_individual = individual.copy()
+        best_fitness = original_fitness
+        self.eval_count += 1
+
+        for _ in range(5): #Small number of iterations is okay here
+            perturbation = np.random.normal(0, 0.05, self.dim)  # Small perturbation
+            new_individual = individual + perturbation
+            new_individual = np.clip(new_individual, self.lower_bounds, self.upper_bounds)
+            fitness = objective_function(new_individual.reshape(1, -1))[0]
+            self.eval_count += 1
+
+            if fitness < best_fitness:
+                best_fitness = fitness
+                best_individual = new_individual
+
+        return best_individual, best_fitness
+
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0  # Reset for this run
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+
+        self.best_fitness_overall = float('inf')
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                # Differential Evolution within each island
+                successful_mutations = 0
+                for j in range(self.population_size):
+                    # Mutation
+                    indices = random.sample(range(self.population_size), 3)
+                    while j in indices:
+                        indices = random.sample(range(self.population_size), 3)
+
+                    x_r1 = self.populations[i][indices[0]]
+                    x_r2 = self.populations[i][indices[1]]
+                    x_r3 = self.populations[i][indices[2]]
+
+                    mutant_vector = x_r1 + self.mutation_factors[i] * (x_r2 - x_r3)
+                    mutant_vector = np.clip(mutant_vector, self.lower_bounds, self.upper_bounds)
+
+                    # Crossover
+                    trial_vector = np.zeros(self.dim)
+                    for k in range(self.dim):
+                        if random.random() < self.crossover_rates[i] or k == random.randint(0, self.dim - 1):
+                            trial_vector[k] = mutant_vector[k]
+                        else:
+                            trial_vector[k] = self.populations[i][j][k]
+
+                    # Local Search (with probability)
+                    if random.random() < self.local_search_probability:
+                        trial_vector, fitness_trial = self.local_search(trial_vector, objective_function)
+                    else:
+                        # Evaluation
+                        fitness_trial = objective_function(trial_vector.reshape(1, -1))[0]
+                        self.eval_count += 1
+
+
+
+                    # Selection
+                    if fitness_trial < self.fitness_values[i][j]:
+                        self.populations[i][j] = trial_vector
+                        self.fitness_values[i][j] = fitness_trial
+                        successful_mutations += 1 # Track this
+
+                        if fitness_trial < self.best_fitness_overall:
+                            self.best_fitness_overall = fitness_trial
+                            self.best_solution_overall = trial_vector
+
+                #Update island success rate
+                self.island_success_rates[i] = successful_mutations / self.population_size
+
+                #Adaptive parameter control
+                if self.island_success_rates[i] > 0.3:
+                    self.crossover_rates[i] = min(1.0, self.crossover_rates[i] + 0.05)
+                    self.mutation_factors[i] = min(1.0, self.mutation_factors[i] + 0.05)
+                elif self.island_success_rates[i] < 0.1:
+                    self.crossover_rates[i] = max(0.1, self.crossover_rates[i] - 0.05)
+                    self.mutation_factors[i] = max(0.1, self.mutation_factors[i] - 0.05)
+                self.island_age[i] +=1 #Increment island age.
+
+            # Migration between islands
+            if self.eval_count % self.migration_interval == 0 and self.eval_count > 0:
+                for i in range(self.num_islands):
+                    # Choose migrants from the current island (best individuals)
+                    migrant_indices = np.argsort(self.fitness_values[i])[:self.migration_size]
+                    migrants = self.populations[i][migrant_indices]
+
+                    # Choose a target island
+                    target_island = (i + 1) % self.num_islands
+
+                    # Replace worst individuals in the target island with the migrants
+                    replacement_indices = np.argsort(self.fitness_values[target_island])[-self.migration_size:]
+                    self.populations[target_island][replacement_indices] = migrants
+
+                    # Re-evaluate fitness of the migrants in target island after migration
+                    migrant_fitnesses = objective_function(migrants)
+                    self.eval_count += self.migration_size
+                    self.fitness_values[target_island][replacement_indices] = migrant_fitnesses
+
+                    # Update global best if needed
+                    for fitness in migrant_fitnesses:
+                        if fitness < self.best_fitness_overall:
+                            self.best_fitness_overall = fitness
+                            self.best_solution_overall = self.populations[target_island][np.argmin(self.fitness_values[target_island])] #Update the whole best solution.
+
+            #Dynamically adjust migration interval based on global progress.
+            if self.best_fitness_overall < acceptance_threshold:
+                self.migration_interval = max(100, self.migration_interval // 2) #Increase migration rate.
+
+
+
+        if self.best_solution_overall is None and self.dim > 0:  # Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1,-1))[0]
+            self.eval_count +=1
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'num_islands': self.num_islands,
+            'population_size': self.population_size,
+            'crossover_rates': self.crossover_rates, # All island CR values
+            'mutation_factors': self.mutation_factors,  # All island MF values
+            'migration_interval': self.migration_interval,
+            'migration_size': self.migration_size,
+            'local_search_probability': self.local_search_probability,
+            'island_success_rates': self.island_success_rates,
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-25 07:48:11 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 07:49:00 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:49:00 INFO FeHistory: [167325.94365087 234912.88841133 103278.61084839 ...  -3842.54768896
+  -3842.54768854  -3842.54769038]
+2025-06-25 07:49:00 INFO Expected Optimum FE: -5000
+2025-06-25 07:49:00 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 07:49:49 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 07:49:49 INFO FeHistory: [168831.18306616 141352.13373678 133952.58863753 ...   -918.69142356
+   -718.81262536   -404.82560346]
+2025-06-25 07:49:49 INFO Expected Optimum FE: -5000
+2025-06-25 07:49:49 INFO Unimodal AOCC mean: nan
+2025-06-25 07:49:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 07:49:49 INFO Multimodal (multiple components) AOCC mean: 0.1819
+2025-06-25 07:49:49 INFO AOCC mean: 0.1819
+2025-06-25 07:49:49 INFO Weighed AOCC mean: nan

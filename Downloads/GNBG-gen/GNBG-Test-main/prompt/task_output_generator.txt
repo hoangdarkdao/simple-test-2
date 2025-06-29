@@ -1,0 +1,63 @@
+Provide a complete, standalone Python function. The Python class must adhere to the following structure:
+
+1.  `__init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float])`:
+    * `budget`: Max function evaluations.
+    * `dim`: Problem dimensionality (typically 30).
+    * `lower_bounds`, `upper_bounds`: Lists for variable boundaries (typically -100.0 to 100.0). Store these as NumPy arrays.
+    * Initialize your algorithm's state, including its population and any special parameters.
+
+2.  `optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple`:
+    * `objective_function`: Accepts a 2D NumPy array `X` (shape `(N, dim)`) and returns a 1D NumPy array of `N` fitness values.
+    * Implement your algorithm's core logic. Manage `self.eval_count` carefully.
+    * Return a tuple: `(best_solution_1D_numpy_array, best_fitness_scalar, optimization_info_dict)`.
+
+
+Provide **one** complete and well-documented algorithm as your response.
+
+**Output Format:**
+
+# Name: YourUniqueAlgorithmName
+# Description: Concise one-line description of how the algorithm tackles multimodal landscapes.
+# Code:
+```python
+import numpy as np
+# Add other standard library imports if needed (e.g., random).
+
+class YourUniqueAlgorithmName:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # LLM: Initialize any algorithm-specific state here
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0 # Reset for this run
+        if self.dim > 0:
+             self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+             self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        # --- LLM: Implement core optimization logic here for multimodal problems ---
+        # A good structure would involve a main loop that checks the budget.
+        # Inside the loop, it should generate new solutions, evaluate them,
+        # and include a specific mechanism to avoid getting stuck in local optima.
+        #
+        # while self.eval_count < self.budget:
+        #     # ... your sophisticated EA logic ...
+        # --- End LLM Logic ---
+
+        if self.best_solution_overall is None and self.dim > 0 : # Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info

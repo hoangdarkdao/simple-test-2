@@ -1,0 +1,160 @@
+2025-06-24 07:28:47 INFO --- GNBG Problem Parameters for f6 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -186.864053
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-24 07:28:56 INFO Run function 6 complete. FEHistory len: 100000, AOCC: 0.1660
+2025-06-24 07:28:56 INFO FeHistory: [-183.31277257 -183.39104631 -183.39508392 ... -184.65285858 -185.1063496
+ -185.11603374]
+2025-06-24 07:28:56 INFO Expected Optimum FE: -186.86405320391498
+2025-06-24 07:28:56 INFO Good algorithm:
+Algorithm Name: AdaptiveHybridDE
+import numpy as np
+import random
+
+# Name: AdaptiveHybridDE
+# Description: A hybrid Differential Evolution algorithm with adaptive mutation and Gaussian process-guided exploration for multimodal landscapes.
+
+class AdaptiveHybridDE:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.population_size = 10 * self.dim
+        self.archive_size = 200  # Increased archive size for better diversity
+        self.archive = []
+        self.population = None
+        self.F_scale = 0.5
+        self.CR = 0.9  # Crossover rate
+
+        self.gp_samples = 50  # Number of samples for Gaussian process
+        self.gp_iterations = 10 #number of GP iterations
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness)]
+        self.best_fitness_overall = np.min(fitness)
+
+        while self.eval_count < self.budget:
+            offspring = self.generate_offspring(self.population, fitness)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+            
+            #Gaussian Process Exploration
+            if self.eval_count % (self.population_size*2) == 0:
+                new_candidates = self.gaussian_process_exploration(objective_function)
+                offspring = np.concatenate((offspring, new_candidates))
+                offspring_fitness = np.concatenate((offspring_fitness, objective_function(new_candidates)))
+                self.eval_count += len(new_candidates)
+
+
+            self.update_archive(offspring, offspring_fitness)
+
+            combined_population = np.concatenate((self.population, offspring))
+            combined_fitness = np.concatenate((fitness, offspring_fitness))
+            indices = np.argsort(combined_fitness)
+            self.population = combined_population[indices[:self.population_size]]
+            fitness = combined_fitness[indices[:self.population_size]]
+
+            self.best_solution_overall = self.population[np.argmin(fitness)]
+            self.best_fitness_overall = np.min(fitness)
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'archive_size': len(self.archive)
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def generate_offspring(self, population, fitness):
+        offspring = np.zeros((self.population_size, self.dim))
+        self.F_scale = 0.5 + 0.3 * np.random.rand()  # Adaptive scaling factor
+
+        for i in range(self.population_size):
+            if self.archive:
+                pbest_index = np.random.choice(len(self.archive))
+                pbest = self.archive[pbest_index][0]
+            else:
+                pbest = population[np.argmin(fitness)]
+
+            a, b, c = random.sample(range(self.population_size), 3)
+            while a == i or b == i or c == i:
+                a, b, c = random.sample(range(self.population_size), 3)
+
+            mutant = population[i] + self.F_scale * (pbest - population[i] + population[a] - population[b])
+            cross_points = np.random.rand(self.dim) < self.CR
+            offspring[i] = np.where(cross_points, mutant, population[i])
+            offspring[i] = np.clip(offspring[i], self.lower_bounds, self.upper_bounds)
+
+        return offspring
+
+    def update_archive(self, offspring, offspring_fitness):
+        for i in range(len(offspring)):
+            if len(self.archive) < self.archive_size:
+                self.archive.append((offspring[i], offspring_fitness[i]))
+            else:
+                worst_index = np.argmax([f for _, f in self.archive])
+                if offspring_fitness[i] < self.archive[worst_index][1]:
+                    self.archive[worst_index] = (offspring[i], offspring_fitness[i])
+
+    def gaussian_process_exploration(self, objective_function):
+        if not self.archive:
+            return np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.gp_samples, self.dim))
+
+        #Simplified GP exploration (replace with a proper GP implementation if needed)
+        archive_points = np.array([x for x,_ in self.archive])
+        best_point = self.best_solution_overall
+        
+        new_candidates = []
+        for _ in range(self.gp_iterations):
+            exploration_points = np.random.normal(loc=best_point, scale=np.std(archive_points, axis=0), size=(self.gp_samples, self.dim))
+            exploration_points = np.clip(exploration_points, self.lower_bounds, self.upper_bounds)
+            new_candidates.extend(exploration_points)
+
+
+        return np.array(new_candidates)
+2025-06-24 07:28:56 INFO --- GNBG Problem Parameters for f13 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -216.727696
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-24 07:29:05 INFO Run function 13 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-24 07:29:05 INFO FeHistory: [ 619501.88371709 2234773.41782985 1985580.70339437 ...  209953.75874499
+  200111.98227911  345342.69650784]
+2025-06-24 07:29:05 INFO Expected Optimum FE: -216.7276963542314
+2025-06-24 07:29:05 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 07:31:10 INFO Run function 18 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-24 07:31:10 INFO FeHistory: [212524.0873953  127936.11465041  94544.97005538 ...  -4399.84622559
+  -4399.85859626  -4399.77866358]
+2025-06-24 07:31:10 INFO Expected Optimum FE: -5000
+2025-06-24 07:31:10 INFO Unimodal AOCC mean: 0.1660
+2025-06-24 07:31:10 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-24 07:31:10 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 07:31:10 INFO AOCC mean: 0.0553
+2025-06-24 07:31:10 INFO Weighed AOCC mean: 0.0166

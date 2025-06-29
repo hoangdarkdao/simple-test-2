@@ -1,0 +1,253 @@
+2025-06-23 10:15:42 INFO --- GNBG Problem Parameters for f2 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -703.132815
+  Lambda (Curvature): [0.05]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-23 10:15:48 INFO Run function 2 complete. FEHistory len: 70000, AOCC: 0.1757
+2025-06-23 10:15:48 INFO FeHistory: [-701.36573935 -701.33638126 -701.3174063  ... -701.30870361 -701.26849006
+ -701.29709339]
+2025-06-23 10:15:48 INFO Expected Optimum FE: -703.1328146165181
+2025-06-23 10:15:48 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithDiversityControl
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: AdaptiveDifferentialEvolutionWithDiversityControl
+# Description: A differential evolution algorithm with adaptive mutation and crossover rates and diversity preservation using crowding and a niching strategy.
+
+class AdaptiveDifferentialEvolutionWithDiversityControl:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weighting factor
+        self.CR = 0.9  # Crossover rate
+        self.niche_radius = 0.2  # Radius for niching
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_best(offspring, offspring_fitness)
+
+            # Adaptive Parameter Control (adjust F and CR based on success rate)
+            success_rate = np.sum(offspring_fitness < fitness_values) / self.population_size
+            self.F = max(0.1, self.F + 0.1 * (success_rate - 0.2))  # Increase F if success rate is high
+            self.CR = max(0.1, min(1.0, self.CR + 0.1 * (success_rate - 0.2))) #Increase CR if success rate is high
+            self.niche_radius = self.niche_radius * (1 + 0.05 * (1 - success_rate)) #Increase niching radius if success rate is low
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            # Select three distinct vectors different from the current vector
+            a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+
+            # Mutation
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            jrand = np.random.randint(0, self.dim)
+            for j in range(self.dim):
+                if np.random.rand() < self.CR or j == jrand:
+                    offspring[i, j] = mutant[j]
+                else:
+                    offspring[i, j] = population[i, j]
+        return offspring
+
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+      # Crowding Selection with Niching
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        new_population = np.zeros_like(population)
+        new_fitness = np.zeros_like(fitness_values)
+
+        for i in range(self.population_size):
+            # Find nearest neighbor in the current population
+            distances = np.linalg.norm(population - combined_population[i], axis=1)
+            nearest_index = np.argmin(distances)
+
+            # Replace if offspring is better
+            if combined_fitness[i] < combined_fitness[nearest_index]:
+                new_population[i] = combined_population[i]
+                new_fitness[i] = combined_fitness[i]
+            else:
+                new_population[i] = population[nearest_index]
+                new_fitness[i] = fitness_values[nearest_index]
+
+        return new_population, new_fitness
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+2025-06-23 10:15:48 INFO --- GNBG Problem Parameters for f15 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -234.280428
+  Lambda (Curvature): [0.1]
+  Mu (Asymmetry/Depth): [1 1]
+----------------------------------------
+2025-06-23 10:15:55 INFO Run function 15 complete. FEHistory len: 70000, AOCC: 0.1061
+2025-06-23 10:15:55 INFO FeHistory: [-221.41165736 -220.55449377 -221.20262236 ... -220.77435292 -219.93856269
+ -221.94036278]
+2025-06-23 10:15:55 INFO Expected Optimum FE: -234.28042789139022
+2025-06-23 10:15:55 INFO Good algorithm:
+Algorithm Name: AdaptiveDifferentialEvolutionWithDiversityControl
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+# Name: AdaptiveDifferentialEvolutionWithDiversityControl
+# Description: A differential evolution algorithm with adaptive mutation and crossover rates and diversity preservation using crowding and a niching strategy.
+
+class AdaptiveDifferentialEvolutionWithDiversityControl:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100
+        self.F = 0.8  # Differential weighting factor
+        self.CR = 0.9  # Crossover rate
+        self.niche_radius = 0.2  # Radius for niching
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        if self.dim > 0:
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+            self.best_solution_overall = np.array([])
+        self.best_fitness_overall = objective_function(self.best_solution_overall.reshape(1, -1))[0]
+        self.eval_count += 1
+
+        population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        while self.eval_count < self.budget:
+            offspring = self._generate_offspring(population, fitness_values)
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            population, fitness_values = self._selection(population, fitness_values, offspring, offspring_fitness)
+            self._update_best(offspring, offspring_fitness)
+
+            # Adaptive Parameter Control (adjust F and CR based on success rate)
+            success_rate = np.sum(offspring_fitness < fitness_values) / self.population_size
+            self.F = max(0.1, self.F + 0.1 * (success_rate - 0.2))  # Increase F if success rate is high
+            self.CR = max(0.1, min(1.0, self.CR + 0.1 * (success_rate - 0.2))) #Increase CR if success rate is high
+            self.niche_radius = self.niche_radius * (1 + 0.05 * (1 - success_rate)) #Increase niching radius if success rate is low
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _generate_offspring(self, population, fitness_values):
+        offspring = np.zeros_like(population)
+        for i in range(self.population_size):
+            # Select three distinct vectors different from the current vector
+            a, b, c = np.random.choice(np.delete(np.arange(self.population_size), i), 3, replace=False)
+
+            # Mutation
+            mutant = population[a] + self.F * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            jrand = np.random.randint(0, self.dim)
+            for j in range(self.dim):
+                if np.random.rand() < self.CR or j == jrand:
+                    offspring[i, j] = mutant[j]
+                else:
+                    offspring[i, j] = population[i, j]
+        return offspring
+
+
+    def _selection(self, population, fitness_values, offspring, offspring_fitness):
+      # Crowding Selection with Niching
+        combined_population = np.vstack((population, offspring))
+        combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+        new_population = np.zeros_like(population)
+        new_fitness = np.zeros_like(fitness_values)
+
+        for i in range(self.population_size):
+            # Find nearest neighbor in the current population
+            distances = np.linalg.norm(population - combined_population[i], axis=1)
+            nearest_index = np.argmin(distances)
+
+            # Replace if offspring is better
+            if combined_fitness[i] < combined_fitness[nearest_index]:
+                new_population[i] = combined_population[i]
+                new_fitness[i] = combined_fitness[i]
+            else:
+                new_population[i] = population[nearest_index]
+                new_fitness[i] = fitness_values[nearest_index]
+
+        return new_population, new_fitness
+
+    def _update_best(self, offspring, offspring_fitness):
+        for i, fitness in enumerate(offspring_fitness):
+            if fitness < self.best_fitness_overall:
+                self.best_fitness_overall = fitness
+                self.best_solution_overall = offspring[i]
+
+2025-06-23 10:15:55 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-23 10:16:13 INFO Run function 24 complete. FEHistory len: 70000, AOCC: 0.0000
+2025-06-23 10:16:13 INFO FeHistory: [180.95415605 207.21707431 165.25343242 ... 215.411557   204.51623696
+ 230.56037594]
+2025-06-23 10:16:13 INFO Expected Optimum FE: -100
+2025-06-23 10:16:13 INFO Unimodal AOCC mean: 0.1757
+2025-06-23 10:16:13 INFO Multimodal (single component) AOCC mean: 0.1061
+2025-06-23 10:16:13 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-23 10:16:13 INFO AOCC mean: 0.0939

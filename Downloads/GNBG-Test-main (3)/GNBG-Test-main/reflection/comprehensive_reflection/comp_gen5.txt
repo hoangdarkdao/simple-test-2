@@ -1,0 +1,11 @@
+Okay, I understand the task. We need to refine the concept of "Current self-reflection" to focus on building better heuristics for multimodal optimization, specifically *avoiding* the pitfalls and vague statements present in the "Ineffective self-reflection" examples.
+
+Here's a breakdown of a refined approach, designed to steer us towards concrete heuristic design improvements:
+
+*   **Keywords:** *Diversity maintenance, Adaptive operators, Island model granularity, Convergence monitoring*. The "Ineffective self-reflection" mentions these concepts but doesn't explain how to make them specific or manageable. We will provide clear guidelines on this.
+
+*   **Advice:** Focus on: (1) *Quantifying* diversity *effectively*. Implement a diversity metric that isn't easily fooled and ties directly to optimization goals (e.g., distance to known optima or coverage of the search space). (2) Tune operator adaptation *parameters on the fly* based on observable trends. This requires a well-defined, *local* adaptation scheme, not a global one. Also, tune based on observable diversity metrics, like mean feature diversity between individuals. (3) *Granularity control* of island models. Automatically adjust the number and size of islands according to population diversity and island convergence rates. Adjust also migration probabilities/speeds.
+
+*   **Avoid:** *Oversimplification.* Steer clear of vague statements like "increase exploration and exploitation." *Blindly adding "self-adapting" mechanisms.*  The adaptation needs a clear purpose and performance feedback loop to be validated, based on *observable features of the run*.  *Using global archive.* In high-dimensional multimodal spaces, a single archive quickly becomes bloated and ineffective. Island-specific archives or more focused sampling strategies work best.
+
+*   **Explanation:** The primary goal is to design heuristics that are *data-driven and observable*. Instead of vaguely claiming diversity maintenance is helpful, the approach needs to have a specific diversity metric and mechanism for adapting based on that metric. Heuristics should provide ways to modulate the granularity of the island model based on convergence rates, thereby focusing computation. The effectiveness of each heuristic MUST be measurable on-the-fly so a new one can replace it with ease.

@@ -1,0 +1,1989 @@
+2025-06-24 22:06:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:06:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:06:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:06:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:06:45 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:07:32 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:07:32 INFO FeHistory: [116377.63169292  96919.2685105  118860.68562685 ...  73658.30784841
+  44603.11980183  64756.5907783 ]
+2025-06-24 22:07:32 INFO Expected Optimum FE: -5000
+2025-06-24 22:07:32 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:07:32 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.5917
+2025-06-24 22:07:32 INFO FeHistory: [160832.75564237 111396.79370871 119435.72325888 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-24 22:07:32 INFO Expected Optimum FE: -5000
+2025-06-24 22:07:32 INFO Good algorithm:
+Algorithm Name: IslandModelDifferentialEvolution
+import numpy as np
+import random
+
+# Name: IslandModelDifferentialEvolution
+# Description: Implements a multi-island Differential Evolution algorithm with migration to aggressively explore different basins.
+# Code:
+class IslandModelDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 25, crossover_rate: float = 0.7, differential_weight: float = 0.5, migration_interval: int = 5000, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = int(num_islands)
+        self.population_size = int(population_size)
+        self.crossover_rate = float(crossover_rate)
+        self.differential_weight = float(differential_weight)
+        self.migration_interval = int(migration_interval)
+        self.migration_size = int(migration_size)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(self.population_size, self.dim))
+            fitness = np.full(self.population_size, float('inf'))
+            self.islands.append({
+                'population': population,
+                'fitness': fitness,
+                'best_solution': None,
+                'best_fitness': float('inf')
+            })
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+
+        # Initial evaluation of populations on all islands
+        for island in self.islands:
+            island['fitness'] = objective_function(island['population'])
+            self.eval_count += self.population_size
+
+            best_index = np.argmin(island['fitness'])
+            island['best_solution'] = island['population'][best_index].copy()
+            island['best_fitness'] = island['fitness'][best_index]
+
+            if island['best_fitness'] < self.best_fitness_overall:
+                self.best_fitness_overall = island['best_fitness']
+                self.best_solution_overall = island['best_solution'].copy()
+
+        while self.eval_count < self.budget:
+            for i, island in enumerate(self.islands):
+                new_population = np.zeros_like(island['population'])
+                for j in range(self.population_size):
+                    # Differential Evolution mutation and crossover
+                    idxs = [idx for idx in range(self.population_size) if idx != j]
+                    a, b, c = random.sample(idxs, 3)
+                    mutant = island['population'][a] + self.differential_weight * (island['population'][b] - island['population'][c])
+                    mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  # Clip to bounds
+
+                    # Crossover
+                    trial_vector = np.zeros(self.dim)
+                    for k in range(self.dim):
+                        if random.random() < self.crossover_rate or k == random.randint(0, self.dim - 1):
+                            trial_vector[k] = mutant[k]
+                        else:
+                            trial_vector[k] = island['population'][j, k]
+
+                    new_population[j] = trial_vector
+
+                # Evaluate new population
+                new_fitness = objective_function(new_population)
+                self.eval_count += self.population_size
+
+                # Selection
+                for j in range(self.population_size):
+                    if new_fitness[j] < island['fitness'][j]:
+                        island['population'][j] = new_population[j].copy()
+                        island['fitness'][j] = new_fitness[j]
+
+                # Update island best
+                best_index = np.argmin(island['fitness'])
+                if island['fitness'][best_index] < island['best_fitness']:
+                    island['best_solution'] = island['population'][best_index].copy()
+                    island['best_fitness'] = island['fitness'][best_index]
+
+                    # Update global best
+                    if island['best_fitness'] < self.best_fitness_overall:
+                        self.best_fitness_overall = island['best_fitness']
+                        self.best_solution_overall = island['best_solution'].copy()
+
+            # Migration
+            if self.eval_count % self.migration_interval == 0:
+                # Choose sender and receiver islands randomly
+                sender_island_index = random.randint(0, self.num_islands - 1)
+                receiver_island_index = random.randint(0, self.num_islands - 1)
+                while receiver_island_index == sender_island_index:
+                    receiver_island_index = random.randint(0, self.num_islands - 1)
+
+                sender_island = self.islands[sender_island_index]
+                receiver_island = self.islands[receiver_island_index]
+                
+                # Select migrants from sender (best individuals)
+                migrant_indices = np.argsort(sender_island['fitness'])[:self.migration_size]
+                migrants = sender_island['population'][migrant_indices].copy()
+                migrant_fitnesses = sender_island['fitness'][migrant_indices].copy()
+
+                # Replace worst individuals on receiver island with migrants
+                replace_indices = np.argsort(receiver_island['fitness'])[-self.migration_size:]
+                receiver_island['population'][replace_indices] = migrants
+                receiver_island['fitness'][replace_indices] = migrant_fitnesses
+                
+                # Recalculate the fitness on migrated individuals since the fitness eval might not have migrated correctly.
+                receiver_island['fitness'][replace_indices] = objective_function(receiver_island['population'][replace_indices])
+                self.eval_count += self.migration_size
+                
+                # Update receiver island best:
+                best_index = np.argmin(receiver_island['fitness'])
+                if receiver_island['fitness'][best_index] < receiver_island['best_fitness']:
+                    receiver_island['best_solution'] = receiver_island['population'][best_index].copy()
+                    receiver_island['best_fitness'] = receiver_island['fitness'][best_index]
+                    
+                    if receiver_island['best_fitness'] < self.best_fitness_overall:
+                            self.best_fitness_overall = receiver_island['best_fitness']
+                            self.best_solution_overall = receiver_island['best_solution'].copy()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-24 22:07:32 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:07:34 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.6001
+2025-06-24 22:07:34 INFO FeHistory: [169669.97929531 108056.91206681 117903.47977163 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-24 22:07:34 INFO Expected Optimum FE: -5000
+2025-06-24 22:07:34 INFO Good algorithm:
+Algorithm Name: IslandDifferentialEvolution
+import numpy as np
+import random
+
+# Name: IslandDifferentialEvolution
+# Description:  Uses an island model with differential evolution and periodic migration to explore multiple basins.
+# Code:
+class IslandDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 20, mutation_rate: float = 0.5, crossover_rate: float = 0.7, migration_interval: int = 500, migration_size: int = 2):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.populations = []
+        self.fitness_values = []
+        self.best_solutions = []
+        self.best_fitnesses = []
+
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+            self.populations.append(population)
+            self.fitness_values.append(np.full(self.population_size, float('inf')))  # Initialize fitness
+            self.best_solutions.append(None)
+            self.best_fitnesses.append(float('inf'))
+
+    def differential_evolution_step(self, population, fitness_values, objective_function):
+        for i in range(self.population_size):
+            # Mutation
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+            mutant = population[a] + self.mutation_rate * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate:
+                    trial_vector[j] = mutant[j]
+
+            # Evaluation
+            trial_vector_reshaped = trial_vector.reshape(1, -1)
+            f = objective_function(trial_vector_reshaped)[0]
+            self.eval_count += 1
+
+            # Selection
+            if f < fitness_values[i]:
+                population[i] = trial_vector
+                fitness_values[i] = f
+
+        return population, fitness_values
+
+    def migrate(self):
+        for i in range(self.num_islands):
+            # Select migrants from this island
+            island_indices = list(range(self.population_size))
+            migrant_indices = random.sample(island_indices, self.migration_size)
+            migrants = self.populations[i][migrant_indices]
+            migrant_fitnesses = self.fitness_values[i][migrant_indices]
+
+            # Choose a destination island
+            destination_island = (i + 1) % self.num_islands  # Cyclic migration
+
+            # Replace individuals in the destination island
+            replace_indices = random.sample(list(range(self.population_size)), self.migration_size)
+            self.populations[destination_island][replace_indices] = migrants
+            self.fitness_values[destination_island][replace_indices] = migrant_fitnesses
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize populations and fitness
+        for island_idx in range(self.num_islands):
+            fitness_values = objective_function(self.populations[island_idx])
+            self.eval_count += self.population_size
+            self.fitness_values[island_idx] = fitness_values
+            best_index = np.argmin(fitness_values)
+            self.best_solutions[island_idx] = self.populations[island_idx][best_index]
+            self.best_fitnesses[island_idx] = fitness_values[best_index]
+
+            if self.best_fitnesses[island_idx] < self.best_fitness_overall:
+                self.best_fitness_overall = self.best_fitnesses[island_idx]
+                self.best_solution_overall = np.copy(self.best_solutions[island_idx])
+
+        generation = 0
+        while self.eval_count < self.budget:
+            generation += 1
+            for island_idx in range(self.num_islands):
+                self.populations[island_idx], self.fitness_values[island_idx] = self.differential_evolution_step(
+                    self.populations[island_idx], self.fitness_values[island_idx], objective_function)
+
+                best_index = np.argmin(self.fitness_values[island_idx])
+                if self.fitness_values[island_idx][best_index] < self.best_fitnesses[island_idx]:
+                    self.best_fitnesses[island_idx] = self.fitness_values[island_idx][best_index]
+                    self.best_solutions[island_idx] = np.copy(self.populations[island_idx][best_index])
+
+
+                if self.best_fitnesses[island_idx] < self.best_fitness_overall:
+                    self.best_fitness_overall = self.best_fitnesses[island_idx]
+                    self.best_solution_overall = np.copy(self.best_solutions[island_idx])
+
+            if generation * self.population_size * self.num_islands % self.migration_interval == 0:
+                self.migrate()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-24 22:07:34 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:07:34 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:07:34 INFO FeHistory: [102195.96307568 127342.05508069 136252.62844808 ...   3945.82478344
+   3086.87570566   -420.32603973]
+2025-06-24 22:07:34 INFO Expected Optimum FE: -5000
+2025-06-24 22:07:34 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:07:35 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.5919
+2025-06-24 22:07:35 INFO FeHistory: [149376.26495576 116577.2617931  175987.51998106 ...  -5000.
+  -5000.          79552.99130883]
+2025-06-24 22:07:35 INFO Expected Optimum FE: -5000
+2025-06-24 22:07:35 INFO Good algorithm:
+Algorithm Name: ArchipelagoDifferentialEvolution
+import numpy as np
+import random
+
+# Name: ArchipelagoDifferentialEvolution
+# Description: An island model differential evolution algorithm designed to aggressively explore multimodal landscapes by migrating promising individuals between islands periodically and using a modified DE mutation strategy to increase diversity.
+
+class ArchipelagoDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 25, crossover_rate: float = 0.7, mutation_rate: float = 0.5, migration_interval: int = 5000, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_rate = mutation_rate  # Standard DE mutation rate
+        self.migration_interval = int(migration_interval)
+        self.migration_size = migration_size # Number of individuals to migrate
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize populations for each island
+        self.populations = [np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim)) for _ in range(self.num_islands)]
+        self.fitnesses = [np.full(self.population_size, float('inf')) for _ in range(self.num_islands)]
+        self.best_solutions = [None] * self.num_islands
+        self.best_fitnesses = [float('inf')] * self.num_islands
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0 # Reset for this run
+        for i in range(self.num_islands):  # Initialize overall best from a random element
+          if self.dim > 0:
+            self.best_solutions[i] = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+          else:
+            self.best_solutions[i] = np.array([])
+          self.best_fitnesses[i] = float('inf')
+
+        if self.best_solution_overall is None and self.dim > 0:  #Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        
+        self.best_fitness_overall = float('inf')
+
+
+        generation = 0
+        while self.eval_count < self.budget:
+            generation += 1
+
+            for island_index in range(self.num_islands):
+                population = self.populations[island_index]
+                fitnesses = self.fitnesses[island_index]
+
+                # Evaluate the population if not already evaluated
+                unevaluated_indices = np.where(fitnesses == float('inf'))[0]
+
+                if len(unevaluated_indices) > 0:
+                    unevaluated_individuals = population[unevaluated_indices]
+                    new_fitnesses = objective_function(unevaluated_individuals)
+                    self.eval_count += len(unevaluated_individuals)
+                    fitnesses[unevaluated_indices] = new_fitnesses
+                    self.fitnesses[island_index] = fitnesses  # Update fitness in self
+                    if self.eval_count >= self.budget:
+                      break
+
+                for i in range(self.population_size):
+                    # Mutation (Modified DE)
+                    if self.dim > 0:
+                        indices = list(range(self.population_size))
+                        indices.remove(i)
+                        random.shuffle(indices)
+                        r1, r2, r3 = indices[:3]
+
+                        # Introduce random reset for diversity
+                        if random.random() < 0.1: # Probability of random reset
+                            mutant = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+                        else:
+                            # Standard DE mutation with self.mutation_rate
+                            mutant = population[r1] + self.mutation_rate * (population[r2] - population[r3])
+
+                        mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                        # Crossover
+                        trial_vector = np.copy(population[i])
+                        for j in range(self.dim):
+                            if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                                trial_vector[j] = mutant[j]
+                    else:
+                      trial_vector = np.array([])
+                    # Evaluation
+                    trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]
+                    self.eval_count += 1
+
+                    # Selection
+                    if trial_fitness < fitnesses[i]:
+                        population[i] = trial_vector
+                        fitnesses[i] = trial_fitness
+
+                        if trial_fitness < self.best_fitnesses[island_index]:
+                            self.best_solutions[island_index] = trial_vector
+                            self.best_fitnesses[island_index] = trial_fitness
+
+                        if trial_fitness < self.best_fitness_overall:
+                            self.best_solution_overall = trial_vector
+                            self.best_fitness_overall = trial_fitness
+                    if self.eval_count >= self.budget:
+                      break
+
+                self.populations[island_index] = population
+                self.fitnesses[island_index] = fitnesses
+
+            # Migration
+            if generation * self.population_size * self.num_islands % self.migration_interval == 0 and self.eval_count < self.budget:
+                self.migrate()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def migrate(self):
+        # Sort each island's population by fitness
+        sorted_indices = [np.argsort(fitnesses) for fitnesses in self.fitnesses]
+
+        # Select the best individuals from each island
+        migrants = [self.populations[i][sorted_indices[i][:self.migration_size]] for i in range(self.num_islands)]
+
+        # Determine where to send migrants (ring topology)
+        for i in range(self.num_islands):
+            target_island = (i + 1) % self.num_islands
+            worst_indices = sorted_indices[target_island][-self.migration_size:]  # indices of worst individuals on target island
+            self.populations[target_island][worst_indices] = migrants[i] # Replace worst with migrants
+            self.fitnesses[target_island][worst_indices] = np.full(self.migration_size, float('inf')) #Mark as unevaluated
+
+
+2025-06-24 22:07:35 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:08:17 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:08:17 INFO FeHistory: [120010.30183776 204524.14185944 120901.6890264  ...  60608.00539718
+  75660.56782923  62581.88635912]
+2025-06-24 22:08:17 INFO Expected Optimum FE: -5000
+2025-06-24 22:08:17 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:08:17 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.1852
+2025-06-24 22:08:17 INFO FeHistory: [ 96060.42505363 154025.63726489 123930.23870692 ...  -4470.39999806
+  -4470.39999809  -4470.3999982 ]
+2025-06-24 22:08:17 INFO Expected Optimum FE: -5000
+2025-06-24 22:08:17 INFO Good algorithm:
+Algorithm Name: IslandModelDifferentialEvolution
+import numpy as np
+import random
+
+# Name: IslandModelDifferentialEvolution
+# Description: Implements a multi-island Differential Evolution algorithm with migration to aggressively explore different basins.
+# Code:
+class IslandModelDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 25, crossover_rate: float = 0.7, differential_weight: float = 0.5, migration_interval: int = 5000, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = int(num_islands)
+        self.population_size = int(population_size)
+        self.crossover_rate = float(crossover_rate)
+        self.differential_weight = float(differential_weight)
+        self.migration_interval = int(migration_interval)
+        self.migration_size = int(migration_size)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize islands
+        self.islands = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(low=self.lower_bounds, high=self.upper_bounds, size=(self.population_size, self.dim))
+            fitness = np.full(self.population_size, float('inf'))
+            self.islands.append({
+                'population': population,
+                'fitness': fitness,
+                'best_solution': None,
+                'best_fitness': float('inf')
+            })
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+
+        # Initial evaluation of populations on all islands
+        for island in self.islands:
+            island['fitness'] = objective_function(island['population'])
+            self.eval_count += self.population_size
+
+            best_index = np.argmin(island['fitness'])
+            island['best_solution'] = island['population'][best_index].copy()
+            island['best_fitness'] = island['fitness'][best_index]
+
+            if island['best_fitness'] < self.best_fitness_overall:
+                self.best_fitness_overall = island['best_fitness']
+                self.best_solution_overall = island['best_solution'].copy()
+
+        while self.eval_count < self.budget:
+            for i, island in enumerate(self.islands):
+                new_population = np.zeros_like(island['population'])
+                for j in range(self.population_size):
+                    # Differential Evolution mutation and crossover
+                    idxs = [idx for idx in range(self.population_size) if idx != j]
+                    a, b, c = random.sample(idxs, 3)
+                    mutant = island['population'][a] + self.differential_weight * (island['population'][b] - island['population'][c])
+                    mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)  # Clip to bounds
+
+                    # Crossover
+                    trial_vector = np.zeros(self.dim)
+                    for k in range(self.dim):
+                        if random.random() < self.crossover_rate or k == random.randint(0, self.dim - 1):
+                            trial_vector[k] = mutant[k]
+                        else:
+                            trial_vector[k] = island['population'][j, k]
+
+                    new_population[j] = trial_vector
+
+                # Evaluate new population
+                new_fitness = objective_function(new_population)
+                self.eval_count += self.population_size
+
+                # Selection
+                for j in range(self.population_size):
+                    if new_fitness[j] < island['fitness'][j]:
+                        island['population'][j] = new_population[j].copy()
+                        island['fitness'][j] = new_fitness[j]
+
+                # Update island best
+                best_index = np.argmin(island['fitness'])
+                if island['fitness'][best_index] < island['best_fitness']:
+                    island['best_solution'] = island['population'][best_index].copy()
+                    island['best_fitness'] = island['fitness'][best_index]
+
+                    # Update global best
+                    if island['best_fitness'] < self.best_fitness_overall:
+                        self.best_fitness_overall = island['best_fitness']
+                        self.best_solution_overall = island['best_solution'].copy()
+
+            # Migration
+            if self.eval_count % self.migration_interval == 0:
+                # Choose sender and receiver islands randomly
+                sender_island_index = random.randint(0, self.num_islands - 1)
+                receiver_island_index = random.randint(0, self.num_islands - 1)
+                while receiver_island_index == sender_island_index:
+                    receiver_island_index = random.randint(0, self.num_islands - 1)
+
+                sender_island = self.islands[sender_island_index]
+                receiver_island = self.islands[receiver_island_index]
+                
+                # Select migrants from sender (best individuals)
+                migrant_indices = np.argsort(sender_island['fitness'])[:self.migration_size]
+                migrants = sender_island['population'][migrant_indices].copy()
+                migrant_fitnesses = sender_island['fitness'][migrant_indices].copy()
+
+                # Replace worst individuals on receiver island with migrants
+                replace_indices = np.argsort(receiver_island['fitness'])[-self.migration_size:]
+                receiver_island['population'][replace_indices] = migrants
+                receiver_island['fitness'][replace_indices] = migrant_fitnesses
+                
+                # Recalculate the fitness on migrated individuals since the fitness eval might not have migrated correctly.
+                receiver_island['fitness'][replace_indices] = objective_function(receiver_island['population'][replace_indices])
+                self.eval_count += self.migration_size
+                
+                # Update receiver island best:
+                best_index = np.argmin(receiver_island['fitness'])
+                if receiver_island['fitness'][best_index] < receiver_island['best_fitness']:
+                    receiver_island['best_solution'] = receiver_island['population'][best_index].copy()
+                    receiver_island['best_fitness'] = receiver_island['fitness'][best_index]
+                    
+                    if receiver_island['best_fitness'] < self.best_fitness_overall:
+                            self.best_fitness_overall = receiver_island['best_fitness']
+                            self.best_solution_overall = receiver_island['best_solution'].copy()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-24 22:08:17 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:08:20 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:08:20 INFO FeHistory: [158521.15573267 155920.75451345 157435.23408013 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-24 22:08:20 INFO Expected Optimum FE: -5000
+2025-06-24 22:08:20 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:08:21 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:08:21 INFO FeHistory: [274704.69760932 201576.74326897 149968.26476595 ...  10609.63858204
+  22219.96891198  24183.79087808]
+2025-06-24 22:08:21 INFO Expected Optimum FE: -5000
+2025-06-24 22:08:21 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:08:22 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.2721
+2025-06-24 22:08:22 INFO FeHistory: [239118.69387109 133296.91779607 140771.621359   ...  -4999.99998895
+  -4999.99998805 144411.94464278]
+2025-06-24 22:08:22 INFO Expected Optimum FE: -5000
+2025-06-24 22:08:22 INFO Good algorithm:
+Algorithm Name: ArchipelagoDifferentialEvolution
+import numpy as np
+import random
+
+# Name: ArchipelagoDifferentialEvolution
+# Description: An island model differential evolution algorithm designed to aggressively explore multimodal landscapes by migrating promising individuals between islands periodically and using a modified DE mutation strategy to increase diversity.
+
+class ArchipelagoDifferentialEvolution:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float], num_islands: int = 5, population_size: int = 25, crossover_rate: float = 0.7, mutation_rate: float = 0.5, migration_interval: int = 5000, migration_size: int = 5):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_rate = mutation_rate  # Standard DE mutation rate
+        self.migration_interval = int(migration_interval)
+        self.migration_size = migration_size # Number of individuals to migrate
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        
+        # Initialize populations for each island
+        self.populations = [np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim)) for _ in range(self.num_islands)]
+        self.fitnesses = [np.full(self.population_size, float('inf')) for _ in range(self.num_islands)]
+        self.best_solutions = [None] * self.num_islands
+        self.best_fitnesses = [float('inf')] * self.num_islands
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0 # Reset for this run
+        for i in range(self.num_islands):  # Initialize overall best from a random element
+          if self.dim > 0:
+            self.best_solutions[i] = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+          else:
+            self.best_solutions[i] = np.array([])
+          self.best_fitnesses[i] = float('inf')
+
+        if self.best_solution_overall is None and self.dim > 0:  #Fallback
+            self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        
+        self.best_fitness_overall = float('inf')
+
+
+        generation = 0
+        while self.eval_count < self.budget:
+            generation += 1
+
+            for island_index in range(self.num_islands):
+                population = self.populations[island_index]
+                fitnesses = self.fitnesses[island_index]
+
+                # Evaluate the population if not already evaluated
+                unevaluated_indices = np.where(fitnesses == float('inf'))[0]
+
+                if len(unevaluated_indices) > 0:
+                    unevaluated_individuals = population[unevaluated_indices]
+                    new_fitnesses = objective_function(unevaluated_individuals)
+                    self.eval_count += len(unevaluated_individuals)
+                    fitnesses[unevaluated_indices] = new_fitnesses
+                    self.fitnesses[island_index] = fitnesses  # Update fitness in self
+                    if self.eval_count >= self.budget:
+                      break
+
+                for i in range(self.population_size):
+                    # Mutation (Modified DE)
+                    if self.dim > 0:
+                        indices = list(range(self.population_size))
+                        indices.remove(i)
+                        random.shuffle(indices)
+                        r1, r2, r3 = indices[:3]
+
+                        # Introduce random reset for diversity
+                        if random.random() < 0.1: # Probability of random reset
+                            mutant = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+                        else:
+                            # Standard DE mutation with self.mutation_rate
+                            mutant = population[r1] + self.mutation_rate * (population[r2] - population[r3])
+
+                        mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+                        # Crossover
+                        trial_vector = np.copy(population[i])
+                        for j in range(self.dim):
+                            if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                                trial_vector[j] = mutant[j]
+                    else:
+                      trial_vector = np.array([])
+                    # Evaluation
+                    trial_fitness = objective_function(trial_vector.reshape(1, -1))[0]
+                    self.eval_count += 1
+
+                    # Selection
+                    if trial_fitness < fitnesses[i]:
+                        population[i] = trial_vector
+                        fitnesses[i] = trial_fitness
+
+                        if trial_fitness < self.best_fitnesses[island_index]:
+                            self.best_solutions[island_index] = trial_vector
+                            self.best_fitnesses[island_index] = trial_fitness
+
+                        if trial_fitness < self.best_fitness_overall:
+                            self.best_solution_overall = trial_vector
+                            self.best_fitness_overall = trial_fitness
+                    if self.eval_count >= self.budget:
+                      break
+
+                self.populations[island_index] = population
+                self.fitnesses[island_index] = fitnesses
+
+            # Migration
+            if generation * self.population_size * self.num_islands % self.migration_interval == 0 and self.eval_count < self.budget:
+                self.migrate()
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def migrate(self):
+        # Sort each island's population by fitness
+        sorted_indices = [np.argsort(fitnesses) for fitnesses in self.fitnesses]
+
+        # Select the best individuals from each island
+        migrants = [self.populations[i][sorted_indices[i][:self.migration_size]] for i in range(self.num_islands)]
+
+        # Determine where to send migrants (ring topology)
+        for i in range(self.num_islands):
+            target_island = (i + 1) % self.num_islands
+            worst_indices = sorted_indices[target_island][-self.migration_size:]  # indices of worst individuals on target island
+            self.populations[target_island][worst_indices] = migrants[i] # Replace worst with migrants
+            self.fitnesses[target_island][worst_indices] = np.full(self.migration_size, float('inf')) #Mark as unevaluated
+
+
+2025-06-24 22:08:22 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:16:23 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:16:23 INFO FeHistory: [ 73790.45318316  69459.0680492  193814.86704234 ... 118217.37793552
+  50786.23432193  89433.64167112]
+2025-06-24 22:16:23 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:23 INFO Unimodal AOCC mean: nan
+2025-06-24 22:16:23 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:16:23 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:16:23 INFO AOCC mean: 0.0000
+2025-06-24 22:16:23 INFO Weighed AOCC mean: nan
+2025-06-24 22:16:24 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:16:25 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0550
+2025-06-24 22:16:25 INFO FeHistory: [238219.90350366 117079.24001832 167436.7421025  ...  -4394.24828074
+  -4385.6287637   -4383.4360447 ]
+2025-06-24 22:16:25 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:25 INFO Unimodal AOCC mean: nan
+2025-06-24 22:16:25 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:16:25 INFO Multimodal (multiple components) AOCC mean: 0.2773
+2025-06-24 22:16:25 INFO AOCC mean: 0.2773
+2025-06-24 22:16:25 INFO Weighed AOCC mean: nan
+2025-06-24 22:16:25 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:16:27 INFO Run function 16 complete. FEHistory len: 7510, AOCC: 0.0000
+2025-06-24 22:16:27 INFO FeHistory: [148825.19826568 142405.16619    114269.47016064 ...  24097.85992248
+  10407.28080257  33687.60204238]
+2025-06-24 22:16:27 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:27 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:16:30 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:16:30 INFO FeHistory: [163278.57148145 198084.89726247  94493.25975852 ...  -4399.89598613
+  -4399.89800488  -4399.89715683]
+2025-06-24 22:16:30 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:30 INFO Unimodal AOCC mean: nan
+2025-06-24 22:16:30 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:16:30 INFO Multimodal (multiple components) AOCC mean: 0.2000
+2025-06-24 22:16:30 INFO AOCC mean: 0.2000
+2025-06-24 22:16:30 INFO Weighed AOCC mean: nan
+2025-06-24 22:16:30 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:16:30 INFO Run function 18 complete. FEHistory len: 9985, AOCC: 0.0000
+2025-06-24 22:16:30 INFO FeHistory: [200014.90587291 180054.39038219 126722.82968548 ...  27306.57167356
+  59933.79036409  10489.73272349]
+2025-06-24 22:16:30 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:30 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:16:31 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:16:31 INFO FeHistory: [172732.91742968 209247.62820761 159899.2722607  ... 167925.59147682
+ 195347.55526739  91965.68885712]
+2025-06-24 22:16:31 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:31 INFO Unimodal AOCC mean: nan
+2025-06-24 22:16:31 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:16:31 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:16:31 INFO AOCC mean: 0.0000
+2025-06-24 22:16:31 INFO Weighed AOCC mean: nan
+2025-06-24 22:16:31 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:16:33 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:16:33 INFO FeHistory: [107109.31384671 108888.45533    163739.34527296 ...  -4317.51486336
+  -4317.25517453  -4317.55256398]
+2025-06-24 22:16:33 INFO Expected Optimum FE: -5000
+2025-06-24 22:16:33 INFO Unimodal AOCC mean: nan
+2025-06-24 22:16:33 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:16:33 INFO Multimodal (multiple components) AOCC mean: 0.2880
+2025-06-24 22:16:33 INFO AOCC mean: 0.2880
+2025-06-24 22:16:33 INFO Weighed AOCC mean: nan
+2025-06-24 22:16:33 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:17:15 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:17:15 INFO FeHistory: [ 96919.12060302 130299.659986   105124.28918609 ...   2516.38968531
+   2549.28089257   2523.05590908]
+2025-06-24 22:17:15 INFO Expected Optimum FE: -5000
+2025-06-24 22:17:15 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:17:15 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:17:15 INFO FeHistory: [193474.19874734 176001.41135106 195092.78455411 ...  15932.42202795
+  43361.21095613  39064.31215291]
+2025-06-24 22:17:15 INFO Expected Optimum FE: -5000
+2025-06-24 22:17:15 INFO Unimodal AOCC mean: nan
+2025-06-24 22:17:15 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:17:15 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:17:15 INFO AOCC mean: 0.0000
+2025-06-24 22:17:15 INFO Weighed AOCC mean: nan
+2025-06-24 22:17:19 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:17:19 INFO FeHistory: [136529.77448268 195141.83459426 145317.93483002 ...  -4317.8743771
+  -4317.87400588  33008.3652432 ]
+2025-06-24 22:17:19 INFO Expected Optimum FE: -5000
+2025-06-24 22:17:19 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:17:19 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:17:19 INFO FeHistory: [131580.744518   118917.38403115 139794.3759643  ...  -4470.0593538
+  -4470.06071214  -4470.03945546]
+2025-06-24 22:17:19 INFO Expected Optimum FE: -5000
+2025-06-24 22:17:19 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:17:20 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0894
+2025-06-24 22:17:20 INFO FeHistory: [121246.7485109  162842.09164115 157261.5609475  ...  46656.99627083
+  40000.26410388  48142.65989783]
+2025-06-24 22:17:20 INFO Expected Optimum FE: -5000
+2025-06-24 22:17:20 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:18:02 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:02 INFO FeHistory: [ 97377.0320814  151158.39485771 163123.17980147 ...  29593.05576275
+  29594.55652608  29594.74935778]
+2025-06-24 22:18:02 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:02 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:18:04 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:04 INFO FeHistory: [ 93397.47334541 191618.35793522 230205.78169107 ... 121536.93793859
+ 157506.13482743 177153.71254072]
+2025-06-24 22:18:04 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:04 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:18:06 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:06 INFO FeHistory: [179011.21387021 121691.44158064 166770.32267677 ...  51383.32016847
+  33757.07142037  82667.95277665]
+2025-06-24 22:18:06 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:06 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:18:06 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:06 INFO FeHistory: [127191.44929012 159814.56524005 114879.66123708 ...  -4419.89999973
+  80497.52548429  22772.2641117 ]
+2025-06-24 22:18:06 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:06 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:18:49 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:49 INFO FeHistory: [231090.3831287   97606.66849507 123212.8375004  ... 117711.19719526
+ 145201.30587731 105705.14005933]
+2025-06-24 22:18:49 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:49 INFO Unimodal AOCC mean: nan
+2025-06-24 22:18:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:18:49 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:18:49 INFO AOCC mean: 0.0000
+2025-06-24 22:18:49 INFO Weighed AOCC mean: nan
+2025-06-24 22:18:49 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:49 INFO FeHistory: [200207.11937555 183193.04748723 180810.76320966 ...  20792.79231278
+  20785.93981637  20769.15268954]
+2025-06-24 22:18:49 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:49 INFO Unimodal AOCC mean: nan
+2025-06-24 22:18:49 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:18:49 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:18:49 INFO AOCC mean: 0.0000
+2025-06-24 22:18:49 INFO Weighed AOCC mean: nan
+2025-06-24 22:18:53 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:53 INFO FeHistory: [153186.74784229 148570.52862582 206832.59563558 ...  -4317.89289153
+  -4317.89652866  -4317.89482237]
+2025-06-24 22:18:53 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:53 INFO Unimodal AOCC mean: nan
+2025-06-24 22:18:53 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:18:53 INFO Multimodal (multiple components) AOCC mean: 0.0298
+2025-06-24 22:18:53 INFO AOCC mean: 0.0298
+2025-06-24 22:18:53 INFO Weighed AOCC mean: nan
+2025-06-24 22:18:54 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:18:54 INFO FeHistory: [149058.35628784 188644.11623717 149641.13605255 ...  84562.77582601
+  -3711.54005085 104043.84870751]
+2025-06-24 22:18:54 INFO Expected Optimum FE: -5000
+2025-06-24 22:18:54 INFO Unimodal AOCC mean: nan
+2025-06-24 22:18:54 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:18:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:18:54 INFO AOCC mean: 0.0000
+2025-06-24 22:18:54 INFO Weighed AOCC mean: nan
+2025-06-24 22:21:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:21:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:21:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:21:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:21:05 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:21:53 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0778
+2025-06-24 22:21:53 INFO FeHistory: [137082.64661204 204528.95003331 101703.34479685 ...  -4413.35533933
+  -4393.33832289  -4417.7532654 ]
+2025-06-24 22:21:53 INFO Expected Optimum FE: -5000
+2025-06-24 22:21:53 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:21:54 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0004
+2025-06-24 22:21:54 INFO FeHistory: [164247.26827287 121165.30808367 108355.91840673 ...  -3737.10689388
+  -3815.22306093  -3669.43355175]
+2025-06-24 22:21:54 INFO Expected Optimum FE: -5000
+2025-06-24 22:21:54 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:21:57 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.8520
+2025-06-24 22:21:57 INFO FeHistory: [182439.37708628 134987.13596619 126577.84375435 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-24 22:21:57 INFO Expected Optimum FE: -5000
+2025-06-24 22:21:57 INFO Good algorithm:
+Algorithm Name: AgileIslandHoppingDE
+import numpy as np
+import random
+
+# Name: AgileIslandHoppingDE
+# Description: Combines island-based DE with random reset mutation and migration, fitness reevaluation, for aggressive global exploration.
+# Code:
+class AgileIslandHoppingDE:
+    """
+    Implements a multi-island differential evolution algorithm with random reset mutation and ring topology migration.
+    Individuals are re-evaluated after migration to encourage exploration.
+    """
+
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float],
+                 num_islands: int = 5, population_size: int = 20, crossover_rate: float = 0.7,
+                 mutation_rate: float = 0.5, migration_interval: int = 50, migration_size: int = 2,
+                 random_reset_prob: float = 0.1):
+        """
+        Initializes the AgileIslandHoppingDE algorithm.
+
+        Args:
+            budget: The total evaluation budget.
+            dim: The dimensionality of the problem.
+            lower_bounds: List of lower bounds for each dimension.
+            upper_bounds: List of upper bounds for each dimension.
+            num_islands: The number of independent islands (populations).
+            population_size: The size of each island population.
+            crossover_rate: The crossover rate for differential evolution.
+            mutation_rate: The mutation rate for differential evolution.
+            migration_interval: The number of iterations between migrations.
+            migration_size: The number of individuals to migrate between islands.
+            random_reset_prob: Probability of a random reset in the mutation phase.
+        """
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.num_islands = num_islands
+        self.population_size = population_size
+        self.crossover_rate = crossover_rate
+        self.mutation_rate = mutation_rate
+        self.migration_interval = migration_interval
+        self.migration_size = migration_size
+        self.random_reset_prob = random_reset_prob
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        self.populations = []
+        self.fitness_values = []
+        for _ in range(self.num_islands):
+            population = np.random.uniform(self.lower_bounds, self.upper_bounds, (self.population_size, self.dim))
+            self.populations.append(population)
+            self.fitness_values.append(np.full(self.population_size, float('inf')))  # Initialize fitness values
+
+    def differential_evolution_step(self, population: np.ndarray, fitness_values: np.ndarray,
+                                    objective_function: callable) -> None:
+        """
+        Performs one step of differential evolution on a given population.
+
+        Args:
+            population: The current population (2D numpy array).
+            fitness_values: The fitness values corresponding to the population.
+            objective_function: The callable objective function.
+        """
+        for i in range(self.population_size):
+            # Select three distinct random indices, excluding the current index i.
+            indices = list(range(self.population_size))
+            indices.remove(i)
+            a, b, c = random.sample(indices, 3)
+
+            # Mutation
+            if random.random() < self.random_reset_prob:
+                mutant = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            else:
+                mutant = population[a] + self.mutation_rate * (population[b] - population[c])
+            mutant = np.clip(mutant, self.lower_bounds, self.upper_bounds)
+
+            # Crossover
+            trial_vector = np.copy(population[i])
+            for j in range(self.dim):
+                if random.random() < self.crossover_rate or j == random.randint(0, self.dim - 1):
+                    trial_vector[j] = mutant[j]
+
+            # Evaluation
+            trial_vector_reshaped = trial_vector.reshape(1, -1)  # Reshape for objective function
+            fitness = objective_function(trial_vector_reshaped)[0]
+            self.eval_count += 1
+
+            # Selection
+            if fitness < fitness_values[i]:
+                population[i] = trial_vector
+                fitness_values[i] = fitness
+
+                if fitness < self.best_fitness_overall:
+                    self.best_fitness_overall = fitness
+                    self.best_solution_overall = trial_vector
+
+    def migrate(self) -> None:
+        """
+        Migrates individuals between islands in a ring topology.
+        Replaces individuals on the target island with migrants, and re-evaluates their fitness.
+        """
+        # Sort each island's population by fitness
+        sorted_indices = [np.argsort(fitnesses) for fitnesses in self.fitness_values]
+
+        # Select the best individuals from each island
+        migrants = [self.populations[i][sorted_indices[i][:self.migration_size]] for i in range(self.num_islands)]
+
+        # Determine where to send migrants (ring topology)
+        for i in range(self.num_islands):
+            target_island = (i + 1) % self.num_islands
+            worst_indices = sorted_indices[target_island][-self.migration_size:]  # indices of worst individuals on target island
+            self.populations[target_island][worst_indices] = migrants[i]  # Replace worst with migrants
+            self.fitness_values[target_island][worst_indices] = np.full(self.migration_size, float('inf')) #Mark as unevaluated. Re-evaluation ensures accuracy
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        """
+        Performs the optimization process using the island model differential evolution algorithm.
+
+        Args:
+            objective_function: The callable objective function.
+            acceptance_threshold: A threshold at which the improvement is considered minimal enough to stop the algorithm.
+
+        Returns:
+            A tuple containing the best solution found, its fitness value, and optimization information.
+        """
+        self.eval_count = 0  # Reset evaluation count for this run
+        if self.dim > 0:
+             self.best_solution_overall = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+        else:
+             self.best_solution_overall = np.array([])
+        self.best_fitness_overall = float('inf')
+
+        # Initialize populations and evaluate them.
+        for i in range(self.num_islands):
+            fitness_values = objective_function(self.populations[i])
+            self.eval_count += self.population_size
+            self.fitness_values[i] = fitness_values
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_fitness_overall = fitness_values[best_index]
+                self.best_solution_overall = self.populations[i][best_index]
+
+        generation = 0
+        last_improvement = self.best_fitness_overall
+
+        while self.eval_count < self.budget:
+            for i in range(self.num_islands):
+                self.differential_evolution_step(self.populations[i], self.fitness_values[i], objective_function)
+
+            if generation * self.population_size * self.num_islands % self.migration_interval == 0 and self.eval_count < self.budget:
+                self.migrate()
+
+                # Re-evaluate after migration to ensure correct fitness values and properly account for the migration's impact
+                for i in range(self.num_islands):
+                    unevaluated_indices = np.where(self.fitness_values[i] == float('inf'))[0]
+                    if len(unevaluated_indices) > 0:
+                      unevaluated_individuals = self.populations[i][unevaluated_indices]
+                      new_fitnesses = objective_function(unevaluated_individuals)
+                      self.eval_count += len(unevaluated_individuals)
+                      self.fitness_values[i][unevaluated_indices] = new_fitnesses
+
+                    best_index = np.argmin(self.fitness_values[i])
+                    if self.fitness_values[i][best_index] < self.best_fitness_overall:
+                        self.best_fitness_overall = self.fitness_values[i][best_index]
+                        self.best_solution_overall = self.populations[i][best_index]
+
+
+            # Check for improvement
+            if self.best_fitness_overall < last_improvement - acceptance_threshold:
+                last_improvement = self.best_fitness_overall
+
+            generation += 1
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall,
+            'number_of_islands': self.num_islands,
+            'island_population_size': self.population_size,
+            'differential_evolution_mutation_rate': self.mutation_rate,
+            'differential_evolution_crossover_rate': self.crossover_rate,
+            'migration_interval': self.migration_interval,
+            'migration_size': self.migration_size,
+            'random_reset_probability': self.random_reset_prob
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-24 22:21:57 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:21:57 INFO FeHistory: [141881.41889505 126765.00758588  83867.39236717 ...  -4263.29130067
+  -4263.29130067  -4263.29130067]
+2025-06-24 22:21:57 INFO Expected Optimum FE: -5000
+2025-06-24 22:21:57 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:21:57 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:21:57 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:21:57 INFO FeHistory: [138946.87131725 133906.26195232 162537.13497812 ...  -4470.39999999
+ 117866.09076909  -4470.4       ]
+2025-06-24 22:21:57 INFO Expected Optimum FE: -5000
+2025-06-24 22:21:57 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:22:39 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:22:39 INFO FeHistory: [148102.15976754 176021.61463776 210897.92360748 ... 137263.73155367
+ 102721.47406999  59539.65238682]
+2025-06-24 22:22:39 INFO Expected Optimum FE: -5000
+2025-06-24 22:22:39 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:22:40 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:22:40 INFO FeHistory: [ 96124.22947233 106740.09481727 198973.40955237 ...   1110.9622954
+   -287.7680958    3481.06964427]
+2025-06-24 22:22:40 INFO Expected Optimum FE: -5000
+2025-06-24 22:22:40 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:22:45 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:22:45 INFO FeHistory: [199608.70632292 135413.21239382 184838.27114949 ...   4375.17478272
+   4375.17478272   4375.17478272]
+2025-06-24 22:22:45 INFO Expected Optimum FE: -5000
+2025-06-24 22:22:45 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:22:45 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:22:45 INFO FeHistory: [138456.62877874 108266.71244101  94232.06270921 ...  -2958.22429683
+  -2958.22429683  -2958.22429683]
+2025-06-24 22:22:45 INFO Expected Optimum FE: -5000
+2025-06-24 22:22:45 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:22:45 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:22:45 INFO FeHistory: [206414.32433753 138076.74927217 146059.25894424 ...  -4315.38937242
+  -4312.49236405  81983.6266251 ]
+2025-06-24 22:22:45 INFO Expected Optimum FE: -5000
+2025-06-24 22:22:45 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:23:25 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:23:25 INFO FeHistory: [140152.61975732 166627.43632088 158744.97974334 ... 114737.62647488
+ 121538.16689917 202305.34387105]
+2025-06-24 22:23:25 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:25 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:25 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:25 INFO Multimodal (multiple components) AOCC mean: 0.0259
+2025-06-24 22:23:25 INFO AOCC mean: 0.0259
+2025-06-24 22:23:25 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:25 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:23:25 ERROR Can not run the algorithm
+2025-06-24 22:23:26 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:23:26 INFO FeHistory: [185873.37167696 259521.92780135 213136.18942815 ...  94041.22522623
+  62910.92205816  23320.48152964]
+2025-06-24 22:23:26 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:26 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:26 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:26 INFO Multimodal (multiple components) AOCC mean: 0.0001
+2025-06-24 22:23:26 INFO AOCC mean: 0.0001
+2025-06-24 22:23:26 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:26 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:23:26 INFO Run function 16 complete. FEHistory len: 1325, AOCC: 0.0000
+2025-06-24 22:23:26 INFO FeHistory: [112307.14067954 165935.36052666 113681.31285283 ... 145588.38702093
+ 109525.57316151  94745.12891725]
+2025-06-24 22:23:26 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:26 ERROR Can not run the algorithm
+2025-06-24 22:23:26 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:23:26 ERROR Can not run the algorithm
+2025-06-24 22:23:26 INFO Run function 16 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-24 22:23:26 INFO FeHistory: [106870.76743999  94431.03394342 157357.50625145 116814.41716785
+ 175141.71196462 113186.86880074 123473.69390951 178434.08028492
+ 136414.81148523 132525.15769543 104303.3732851  130153.07469483
+ 149275.10688473 124741.36163257 160255.59234011 170374.80952388
+ 131977.32543071 125714.20830263 149800.24270203 123730.8965189
+ 123659.80516445 140184.83313112 111334.18271022 103492.50043315
+ 115373.58948892 109806.59067037 129578.82162168  89715.35797783
+ 105494.20391005 159949.41787818 129526.60999467 141092.6820729
+ 112550.12328488 107857.0749891  131955.50194356 120991.33937116
+ 112014.28074268 137592.13871975  91880.40465654 100959.61569618
+ 165582.97551517  74470.32785451 146892.23561335 118231.76409332
+  80262.87926219 137712.9853599  159163.38958857 140453.43260938
+ 118764.20555125 157585.6401795  111636.49123393 140008.17699878
+ 120669.27771036 111228.64312134 132222.47999022 125908.76185946
+ 117942.53202262 116016.85566893 125303.07047846 123139.44899432
+ 123592.58563062 132837.01410853 108951.42002403 175718.36436185
+ 140412.03278204  85395.99156931 111228.91757184 112711.83161013
+ 124032.35840266 144028.71686567 113556.30801491 152317.72517519
+ 154386.92740285 145482.93155529 104600.2252953  162550.36579826
+ 152797.02169161 112303.94848752 144997.6405255  121330.35756881
+ 125323.18000318 135362.47400177 104491.75155266 116534.42847519
+ 177459.87350672  91282.90601491 140504.51715352 158610.80706875
+ 124740.70645113 103577.65562957 142936.55356346 130870.59047897
+ 195664.81774142 117494.7330923  188419.64320803  95689.75575337
+ 111729.7021035  139598.87477687 101969.46986523 170403.10032756
+ 135047.90492364 138163.25004423 137414.77739783 145455.3020849
+ 146746.57110197 131181.75374793 117733.06655972 124947.34400176
+ 140485.32754091 154214.41395834 142194.37222574 109119.66107641
+ 143556.00354253 153699.69148561 210976.9636999  141389.25376334
+ 127691.40894086  95326.41379796 102586.26668195 121803.75245123
+ 107582.83786041 153083.57358754 153119.35485872 130143.86513537
+ 146155.24176133 124280.44728479 137595.60655126 132115.23493598
+ 130814.77626728 154489.57253874 101145.42756002 147740.65162059
+ 139347.28207605 109517.14061324 137090.5771377  117995.71581253
+ 123059.78332832 158575.94840277  90604.60994638 107034.64722978
+ 112442.64566555 154806.42455059 150992.0263647  182882.52076543
+ 201496.35301519 159271.42926179 134736.76786138 114581.64531956
+ 143199.97897146 173113.42276611  97889.80259574 133081.86483733
+ 113592.25698644 100930.79681326 135314.86406333 111402.55935427
+  49084.72233577 159939.3997228  123476.56782133 111769.24134509
+  99002.28397957 144996.1514348  112125.63114946  98398.11885969
+ 165360.58660672 109702.70160449 173751.67354551 135336.28650056
+ 162588.10670833 147610.58760449 106958.63559396 185114.16136876
+ 125748.59444416 122181.12737584 110444.21401413 141131.1330643
+ 130882.11290363 109879.20870565 116831.55139778 127130.56864677
+ 156609.12437601 158532.93240622 109529.38125896 121659.7966172
+ 147593.65162419 130047.1850318  104333.01392921 127905.13347423
+ 101395.71464981 154713.7121165  108567.53150995 127938.42124452
+ 130637.27858941  86866.04068383 151597.02821901 145637.95116744
+ 171133.20648438 139550.42354886 166969.36569803 107581.52158686
+  83101.42507004 171840.77039754  91702.11539247 137662.31548614
+  95372.98492705 132496.03511188 173704.88151869 138047.25306767
+ 143465.08958698 179381.02596559 128197.07242482 118371.24917211
+ 132516.98524007 152130.60377912 170324.69036267  90761.49308274
+ 128427.53796682  94560.27225593 107148.33077979  97551.10807181
+  95735.21795841 121488.12202653 125792.16055301  88736.60954207
+ 144395.89816747 124388.56503791 133246.60902309 132789.769019
+  80177.40656777 143462.60422416 107354.44219479 148069.83877454
+ 111021.89109726 117798.9816093  134160.37006774 110648.09935873
+  98258.52405295 122261.38451903  80892.70541596 130088.21101178
+  94465.30870558 131974.20296888 120701.59494234 144120.55718097
+ 132386.6926293  106152.33897514 123570.38002662 104785.72998061
+ 143022.84245044 125928.2816512  102219.26347997 133387.62888649
+ 176270.52337758 131482.84637302 180961.81362556 119085.81540791
+  67732.99917973 145205.0902799  136690.00912875 140728.3466743
+ 123290.99479733 162612.99171694  93108.52767699 110823.94482561
+ 116209.24038916  98952.67548207 148774.73334026 101442.75413792
+ 103586.7480601  113171.97669878 151365.72036702 143312.46293202
+ 138991.78554555 100707.29938164 125772.35684795 110887.106838
+  92544.44202939 107941.62671875 116717.59823508 125984.66539086
+  94383.39126734 136919.38120748 171981.40970655  96311.14429966
+  94387.84537209 146664.79285464 106117.76668651 134902.2857964
+ 103381.57458923 149111.48970638 121806.86456984 154153.31947332
+ 117176.54490701 106855.62322245 149714.63967227  81368.01808891
+ 150904.32467068 127200.85372828 107341.37354901 117625.10933352
+  77292.34270332  97686.06663527 127388.61983834 137881.75176502
+ 125622.97077296 156692.2310472  127592.82494174 138743.94821426
+ 134900.13566088 123686.98047921  97839.31842516  87344.82832765
+ 145586.67197483 120450.30790531 163849.03266139 156895.46380691
+ 133919.88116252 110210.05834705 107811.7509254   97827.46660193
+ 134402.98526373 134586.74371877 127820.43285685  87524.33133664
+ 127865.94957062  96188.31585491 106507.61214537 125562.41386801
+  93311.32855558 134900.16950511 115143.47857328 116075.38353956
+ 123165.76446076 110864.49441581 121560.64421353 119865.06387351
+  95443.59826922 123230.44535833  98240.77612223 101508.94503949
+  90748.64551587  85456.66456486 113597.80163306 112409.77739149
+ 129388.49254041 110141.96434743 128853.58631493  93427.32766549
+ 104364.5186271  125423.9683326  145875.6434343  152797.03807856
+ 115771.12411751 112245.44430719 116271.72840641 123509.48405004
+  48602.29583539 116647.82882892 115412.6570385  123782.38912167
+  47400.51460616 129185.89672503 111620.06016948 119984.1427654
+ 111195.03318554  95090.3548671  137342.94657882 107420.38048408
+ 105289.58161661 110110.84680404 116999.66612719 115796.40080724
+ 112237.1201184   99958.27814597 135204.4157694  122747.36316808
+ 117951.32526866  97651.51397136  96864.90347743 125662.58005728
+  98493.79379818  82715.15778447 108357.64852528 106999.04731104
+  87434.27395778  96044.32641436 115503.57271427 120596.96889786
+ 104192.35785023 119915.26449867 122317.02960083 116495.8705116
+ 121259.67843117  87025.19895974 148529.28327534  90271.69864554
+ 125336.2185073  111307.7217005  127453.7784714  110750.69268562
+  95616.85321741 107624.74120747  91702.11539247 116814.41716785
+ 134113.67988785 123374.48834768 123551.71604284 114978.38797395
+ 152856.1227125  121002.39232468  87284.38304138  90857.81659474
+ 104656.85057043 137831.89777048 147039.18662072  90761.49308274
+ 101239.89762225 112310.67068586 107817.90649255  91342.66555277
+  89700.38711385 107019.19153307 114644.2220741   96430.41706989
+ 113764.86613071  96496.97903922  98189.46116969 104131.34615272
+  84600.81598196 137770.88618839 106837.54032918 127864.59085588
+ 109531.40714195 113945.37211986 121831.79776994 110648.09935873
+ 106371.15244132  96031.94018131 113473.03844507  93561.3474246
+ 117033.86785036  72337.14259953 118219.59588966 139486.12666281
+  71491.31929955 141868.45950914 126775.15852102  82905.36702577
+ 134464.64856584 105688.80552635  92556.31019325  92665.41417906
+ 120091.81348687 128382.16269483 111747.43439655  87461.83015363
+  46595.56862395 113281.09476825 108329.15469218 108980.44035996
+ 114658.97344725  99557.53585553  88595.92855883 139864.6679084
+ 173093.26369704 128421.39329125 136696.58808064 110029.95248426
+ 112189.67301341 102237.35273601 109436.05095103 136606.77181788
+ 124650.32831194 114082.15566309  91062.81040316 101663.41657486
+ 119946.0007307  119998.62512323  96615.30804967 134785.57268678
+ 103772.92910622  82799.96581867 112066.32389389  97253.98422365
+ 107786.82639301  93354.85839836  99643.13812097 123844.21026102
+  92963.93345925 123791.1367097  131885.94900709  91798.99854438
+ 117176.54490701  96909.53446738 140921.2920132   92114.64303988
+ 109130.2660009  110678.8686906  103321.11926372 119170.83996715]
+2025-06-24 22:23:26 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:26 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 22:23:26 ERROR Can not run the algorithm
+2025-06-24 22:23:27 INFO Run function 18 complete. FEHistory len: 1325, AOCC: 0.0000
+2025-06-24 22:23:27 INFO FeHistory: [115901.56955529 172858.62720964 171054.41496693 ...  85399.58511677
+ 185502.15149979 115407.71589837]
+2025-06-24 22:23:27 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:27 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:23:27 INFO Run function 18 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-24 22:23:27 INFO FeHistory: [156163.36001566 113425.31474964 153628.37225947 157386.86224229
+ 162946.95418476 157597.84519237 113937.64516759 164698.98990227
+ 154865.97031518 134502.13024842 159508.96653063 202725.39977436
+ 164121.91113653 155199.57784812 158696.69644125 206883.6574228
+ 129195.28587024 172058.32181645  84019.62164865 177992.6662818
+ 164856.08533914 115964.33688451 169046.25697624 161144.04074352
+  78236.11105274 171740.92239909 166186.34697215 135051.29000274
+ 141409.50172996 199114.46864095 231561.38295226 112496.5081997
+  86402.51846806 125151.92834223 194309.22924363 142465.22091092
+ 162796.91000641 137396.907111   110910.8804989  159582.87817203
+ 223805.56182953 145396.0135904  174377.47455627  96499.59521532
+ 127625.64844001 178438.35883494 144732.9951867  114297.17601393
+ 139699.36309978 142726.8996186  168379.36725517 188543.06777632
+ 144846.37153275 147550.53950284 140255.19813029 223377.22768018
+ 132436.52380591 158179.06892342 208839.06549709 155480.91578217
+ 238661.20184524 108985.35215501 119930.05904888 188303.58664337
+ 185137.95438555 159187.10735803  94155.64492827 131843.72820113
+ 190619.67155681 169607.64229208 189522.42441172 166312.14029068
+ 165833.83674414 162740.66821437 107938.74116224 127725.67664227
+ 146166.22196194 128608.98150665 171394.45719718 107716.60342305
+ 186934.42191727 139381.71630858 161102.68068529 128747.69932668
+ 170355.36696986 122113.39252598 127131.18698696 130672.16527856
+ 126027.1676692  128791.17333089 117863.77521533 129702.27896703
+ 143329.98885093 116277.20914634 155899.51111712 136499.02751001
+ 173253.48222477 126508.22446507 175564.81960528 154225.44029489
+ 176787.50301874 146706.81520296 215272.25445675 193109.82176586
+ 145859.2774856  158639.44458079 149646.922476   196441.67427899
+ 164303.91990888 169141.50801491 127987.49636258 146977.77198667
+ 155998.59330426 166500.44804258  84342.9664466  185573.65289867
+ 154736.03626174 115382.64479373  87670.01456361 240150.65893983
+ 166448.28796934 120417.20298795 192929.75720949 134047.3785394
+ 135136.22808579 174348.49091225 148593.09553818 173003.15139014
+ 152522.73450712 173664.79952626 231181.2192308  196447.22598487
+ 146497.74491208  75197.36709699 174631.14846455  87846.87891446
+ 208046.88824193 155625.34955131 135832.58404033 101629.13322917
+ 190305.62252838 148428.52879301 108287.62712272 104158.21394627
+ 159861.71574967 154876.68835272 125526.4314273  148989.14527829
+ 169813.74729454 143582.73159822 175297.08828437 244749.61139063
+ 190836.17612405 144365.73614471 222927.13108314 141566.78879748
+  70458.57912611 184366.33085583 234322.09406392 130433.11414756
+ 161959.52363834 181517.98623908 137338.03220329 143961.13756778
+ 196064.69356772 121319.76673714 203005.58840326 125599.68462451
+ 158062.45351063 153998.41032273 177189.30851498 142419.97826561
+ 156222.80231836 132149.66050586 202291.19259849  98388.30624988
+ 180970.89903508 126980.23043743 180177.57615582 247585.64473501
+ 172979.62895599 165431.60556621 137133.91779398 310982.16811827
+ 154759.00858148 166228.21769341 204437.76883592 104047.96306234
+ 274309.86589241 128438.72344012 119664.68480877 170806.18162517
+ 158021.9705359  197070.19340149 165615.80745513 164933.97682918
+ 169312.38021817 151130.54031441 181336.96154982 161619.12267947
+ 114656.67001924 116099.06070971 163867.40287872 145674.72349796
+ 155014.68372835 125474.95481795 176471.49352578 169122.63416162
+ 150654.71184271 138419.55168819 130062.14377445 152145.88331058
+ 186436.11774598 130709.4453646  164183.41577896 150808.79082194
+ 106628.28413878 139593.7678433  153224.16280714 173984.81222586
+ 158392.25890634 181192.42616672 152731.18600535 137091.31920974
+  93738.93144975 182529.54699112 125694.82357141 185136.30910926
+ 131227.08684117 212510.19939528 159748.79220571 153300.1796528
+ 175288.76125386 118739.16815421 142957.75848233 164835.56228375
+ 155155.14906153  97655.15610434 109550.52284137 122582.60331424
+ 134447.94316479 203021.67036544 111671.86676202 174044.79875537
+ 203352.05704322 175808.29217103 155338.24266501 107277.65556092
+ 177641.49812495 117513.85460484 182442.03247254 185136.52671964
+ 146346.47467415 225640.2142965   88310.24209419 171995.51911362
+  72358.68229254 258004.61792065 143555.95173801 125191.94254321
+ 160085.14075413 164685.42315881 119181.18516384 188218.79584681
+ 167178.75685127 162849.99133434 241376.00059184 107596.16784676
+ 118745.23597808 208554.25335105 194049.53815157 244632.86590843
+ 162480.82553388  96228.13882313 140355.77083584 149580.45841162
+ 169905.71647642 178058.43223641 157281.05395693 159989.57067763
+ 117536.75523752 152273.23549456 114242.76953046  73539.67229763
+ 142514.79448888  93453.5281102   98470.55668163 155326.33965928
+  58059.1049362  150492.37745958 100295.61371278 153535.59643699
+ 144024.40611681 142959.05902635 152118.43836223 128040.05766654
+ 156967.87669175 203078.44502184 215007.32573356 144343.92497999
+ 119715.95203687 103119.28094557 206088.98328779 154021.5310834
+ 178309.60882666 212521.22581907 151805.19988303 135393.40358319
+ 173291.775165   126302.66864434 120786.74069631 131656.68090468
+ 170768.40037515 147806.82051875 124257.18219023 144878.1715901
+ 189355.80288768 118842.55769438 126586.39714544 173090.54834874
+ 131395.24572985 132740.51669571 155977.39934598 186543.18752187
+  98222.30151976 218369.11500442 172564.4136688  124807.50812388
+ 165574.33042096 187677.6978785  159006.10448102 196270.68307204
+ 131287.18888616 148122.50378348 158653.52507694 120598.21369888
+ 142027.04339578 124130.04158993  87395.3338454  113193.64246663
+ 160303.30134161 184546.26933555 235583.94660915  86960.20844916
+ 189795.10770454 159065.89477211  81787.05166136 173262.71649684
+ 130745.69336752 132004.83946303 125427.37789057 220072.07700036
+ 121840.9803402  168384.54671414 166419.75204099 172175.9903748
+ 168817.76388509 177704.02626525 221679.15237285 151358.65489158
+ 123191.2239634  198039.56322673 130955.66520632 217893.06318315
+ 144895.46236744 125547.0149533   73769.4587403  152014.07234525
+ 152569.75096511 204171.57535867 150336.2510964   96770.63027368
+ 155100.42737228 178482.7792397  145247.67471875  84817.99892363
+ 158194.67202841 109364.52920262 168570.09563645 120512.26673938
+ 147564.29345881 189792.71445385 133181.15416341 104467.59119591
+ 136823.45461008 108993.854975   156565.34606417 168907.42720464
+ 127760.67760974 152369.5577114  136696.7533732  105301.20404543
+ 114612.85345625 156232.52280545 135483.4477892  127231.70567301
+ 258834.24290872 206306.34902644 148741.54763219 169898.22432749
+  99658.41530746 116155.68833559 103876.01262759 149762.09689201
+ 153400.04166989 116615.73388187  83601.7757664  132882.68231784
+ 181477.62534897 166767.16118554 195024.85976228 116644.62080651
+ 182335.99035649 116406.1474536  153160.79549238 184543.52062822
+ 190238.50989213 112413.57997974  90074.80269162 194599.31359641
+ 131227.2479486  177503.87829987 269573.45419623 106631.73077663
+  99198.85584052 176490.96000942 143142.20880659 154350.62245165
+ 125276.33422523 154541.81591379 129028.14466918 173057.80068622
+ 125327.12604889 174496.55513313 253585.60810479 155262.62268689
+ 162068.30596058 129322.68626923  89139.30822753 101629.13322917
+ 180200.65680351 164613.71097525 133978.57621604 136307.66263728
+ 146437.98229093 105662.01586145 131408.93878197 138359.59947183
+ 175077.62919353 126423.24501978 150813.80856363 107002.14848094
+ 167450.20057166 171942.43925853 125718.42835479 172166.47882528
+  49687.63701447 212391.14696362 139208.99611847 122179.4460188
+ 147535.0577801  129007.39368091 225852.76393522 113879.41653218
+ 128073.67075533 121418.42250113 156604.28973873 173131.88846737
+ 145142.5848362  139696.28981451 139099.87569966 135932.73109568
+ 134771.94135291 127470.83660178 147214.39906885 159465.37851026
+ 127015.0451674  123077.82109727 194389.23917325 122643.34300839
+ 132349.22587182 124215.26604357 134662.44562197  95685.63917378
+ 167191.74858263 109137.52281592 125738.44514632 125877.08665224
+  64387.84894412 120949.08251878  86574.9415217  140803.57180836
+ 162280.63924339 121041.81266459 167539.26257542 108978.42424912
+ 131901.93518177 169051.16776481 189447.40765029 171762.39872882]
+2025-06-24 22:23:27 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:27 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:23:27 ERROR Can not run the algorithm
+2025-06-24 22:23:27 ERROR Can not run the algorithm
+2025-06-24 22:23:27 INFO Run function 19 complete. FEHistory len: 500, AOCC: 0.0000
+2025-06-24 22:23:27 INFO FeHistory: [147892.96453247 190761.74512271 167708.53177985 152332.39267241
+ 238673.2140289  187654.55284324 154042.38165004 211445.4984285
+ 290679.34894926 183288.92468699 124937.56075726 144421.35264374
+ 149397.25843124 171159.81699038 201047.60596736 234072.4974859
+ 197147.69394451 171194.92195491 122142.0557962   97698.20466893
+ 222013.7099379  202026.83121837 222648.1330491   51975.47414523
+ 193796.23527009 160577.23903528 179560.02584058 132714.94437754
+ 265678.27349521 206283.75461979 123088.04065801 150806.70748791
+ 122450.96391532 140024.27931314 159169.64003217 156951.52171207
+ 144297.86676975 186025.46115712 215684.62638213 189972.05613716
+ 212939.9515767  203224.66559922 205549.79268253 146110.36383128
+ 186066.47376089 165433.25645611 178505.60639409 239472.6659044
+ 237203.03028474 129854.85149511 193215.37118531 180029.05050237
+ 154175.1738647  192304.90935687 312412.74372544 205270.51018215
+ 106685.24413315 206954.43684599 169531.19039594 118588.43221141
+ 157926.20861019  84533.38686454 171426.58144375 239878.30152503
+ 110956.16186208 111694.02971164 207919.54831525 205818.22212115
+ 249581.04090233 219461.55930408 157002.68372497 213116.01352142
+ 122674.76323398 227242.00794602 162047.18834472 232811.23789238
+ 185554.82753597 181596.25536157 139043.39375641 190579.88874467
+ 159490.35354653 112469.32176679 151501.60233402 251548.98665918
+ 236044.23243271 200563.97997764 182897.2147968  109950.55085961
+ 139336.43001959 155278.43496013 279577.1389641  177165.70634539
+ 155870.8979983  160579.63845387 178326.95909149 192238.50406963
+  97930.4466669  192587.30342311 115019.49565391 205474.31396676
+ 156398.78686395 278660.19634221 161137.51567247  72057.77210142
+ 145562.81118302 360275.32680148 280088.77777669 267577.48561466
+ 284990.15788038 142744.73180291 192627.4274242  204255.30373419
+ 108387.92060524 149119.46307807 213346.18866904 228402.96994265
+ 224426.66328866 188359.84625788 127661.94527853 106583.97718659
+ 134009.83348306 223350.07322955 159646.31026004 176664.80282453
+ 275000.1854434  102485.11331573 153969.05554393 165523.9501307
+ 133403.27811519 197956.88170526 131696.00126231  90793.01692471
+ 215856.73076907 160218.41796248 251549.39340519 215441.05040968
+ 181812.87024523 124259.27477171 113936.51875412 160249.06707196
+ 232395.7266671  142068.54953111 186991.11802144 209416.84093725
+ 147613.86478164 139087.21223593 157316.6162675  232396.58014066
+ 205484.56416647 208210.93691181 165496.46594756 205301.00917199
+ 214028.34359816 186215.88546919 211885.15629821 126584.56139826
+ 182791.26785938 267950.55659071 196042.66720683 251233.94377214
+ 167267.70578799 180260.25931275 234036.09080754 276188.54946137
+ 158075.57350631 160083.16237809 173147.13495946 199353.30097807
+ 190516.5220881  189056.16196664 163836.46464208 207148.2791619
+ 248931.92945494 220582.61182048 229876.29051775 177795.86115229
+ 170334.96761198 190397.34347967 249276.33856569 150684.06572666
+ 151138.51980686 174602.04809942 237230.90980857 182594.72683001
+ 216057.36478526 178880.20028472 203824.17934603 171738.0589403
+ 147106.37892583 152882.73225984 255573.35186937 135394.66333851
+ 221247.4337349  157896.24612688 331374.3025627  161727.04820452
+ 148315.9958326  340412.90004129 158245.4490314  201023.76025488
+ 180520.88720345 182195.99404708 178797.255713    77301.3391584
+ 178163.80541828 232914.15578818 158067.1631433  213147.28565038
+  96729.30364843 175812.67579428 112455.56842912 157317.66865039
+  93087.48315699 196546.02581736 191870.0526138  239068.93053047
+ 106721.73336518 211115.34841107 150313.38117718 210057.70614702
+ 176728.52202594 154224.65883679 213757.5162201  131856.66145039
+ 286492.14098036 215291.76741609 246094.11222962  74156.35187098
+ 303578.5629651  285826.65423369 228210.91254136 128740.97036152
+ 122655.95104667 174843.56864308 118181.2164321  141096.86508621
+ 144824.44837411 142949.58685698 124485.63284188 230770.64309896
+ 195349.95783163 146732.62747412 185712.3030969  181449.47500884
+ 114754.02754709 200556.4910165  165996.96143923 212349.73982218
+ 245547.5233951  179304.31192931 156636.92256365 167889.85541629
+ 224513.86255502 128263.74399495 262749.18214644 194331.56122478
+ 158402.34772937 193278.44837129 101397.99626513 260678.74264212
+ 163961.95529823 206990.9120925  141267.44821474 234029.16430565
+ 192416.9814092  202539.90509971 184384.03595923 125315.10987756
+ 235502.80381139 188012.51131771 237175.47003355 201627.13033399
+ 162201.35861659 116251.22197308 193443.06834971 185628.96579184
+ 225249.96231235 194880.29920118 209226.18105065 133511.07617393
+ 147752.42903698 216724.80188466 115912.88047099 132711.7107441
+ 191373.49157553 239145.1120263  191752.07973429 225961.73255479
+ 178448.283831   189654.06240627 240960.71908598 184834.30295484
+ 156911.2399704  194196.7418771  161111.9186316  197766.10838723
+ 103296.21917862 152060.19547424 144206.84361723 234409.69275455
+ 167114.38371112 101315.32414823 154666.82367228  65096.50122361
+ 171496.05557568 175158.90991359 201890.63731259 129414.11732734
+ 179012.35997946 200955.46055228 156816.36640248 162824.95149406
+ 191909.66928693 145095.40762171 142747.83942432 202613.79543011
+ 139898.18290355 255938.29754998 144415.12429164  72652.90627977
+ 232164.72412431 142547.51311944 169267.79440759 128852.92488001
+ 142906.86001484 188341.81490878 200983.6202146  116594.75523182
+ 290634.39252715 334110.30448158 145763.16125357 103432.05694535
+ 112822.04541437 288536.71706963  83641.51621842 139612.70385517
+ 275914.1714045  171563.89967459 177030.67441621 151157.57344736
+ 220295.19504146 126962.88086812 156652.81011636 138591.41928223
+ 142655.39293832 204178.83254647 210542.88433167 158338.85578225
+ 142186.3661472  166319.18803254 183051.86674121  83310.94351914
+ 149109.59868889 267513.15967428 206155.05304392 232713.98979258
+ 211143.57059555 152145.82400797 145872.07660477  98545.98578352
+ 148209.68621179 284275.12877247 149875.64566795 167921.11656145
+ 176191.48054462  89252.39817024 136363.25281532 159575.46349799
+ 220376.72077589 223425.22138656 165679.52251902 250124.5962848
+ 180437.14600279 133079.14489025 245324.73586391 187095.73331066
+ 176447.04231052 145460.75555322 171291.45717583 164781.95667351
+ 248126.04687232 146113.82999927 204149.46212651 108746.78342246
+ 174868.47830909 140269.30145123 139421.18012081 157751.41298761
+ 183586.65345767 182674.38034581 149826.80534996 148003.717199
+ 286558.89341193 152444.83303028 179118.53424813 211877.73256598
+ 122045.38137551 282687.49108634 136977.04241634 158659.51688307
+  92709.74562837 136129.54117412 166685.31288067 104654.54221321
+ 129858.02056407 241732.10996281 110490.07324256 154339.94728032
+ 211892.43105687 125676.37209732 133992.03289363 160420.98348796
+ 221957.79763926 166042.22156177 113616.14518922 214873.80444538
+ 199791.15709111 137226.09106005 174743.75945822 116748.50243974
+ 233829.45570842 271186.02179123 209777.9305033   93651.65648612
+ 129663.69511643 158448.56830284 204641.47820947 111945.68732222
+ 254854.04380355 212882.88046446 179107.05958053 148550.21225038
+ 152215.65884065 149932.31162995 147476.46493816 178921.28760561
+ 142931.09870472  83536.07687237 127891.23539378 149072.356242
+ 163852.21594903 153069.76770318 144016.5049467  236977.99089913
+ 187589.83896779 197395.39674227 121712.088853   224180.84544911
+ 141934.37909253 123496.03614707 199829.08678977 123814.93695957
+ 135366.59567196 174248.95912191 198669.4978537  208787.36070457
+ 220114.16724622 111593.727311   166752.91789536 177181.91216921
+ 197071.72317534 197808.17325127 166784.002589   213935.87818877
+ 148584.82288245  57311.33521424 159952.46083617 127906.78866534
+ 256749.10527397 181289.15788023 126109.82105256 231255.49872582
+ 150153.87407946 117877.2265901  159672.03256402 144398.79317543
+ 210068.43282799 159915.67550844 117386.14789401 191155.23109723
+ 135763.57920887 175640.54563144 153688.08241524 182459.96565361
+ 118971.95888943 183703.49558759 201781.37560215 186507.54665525
+ 186601.30649441 147226.2428598  178637.64862053 134787.47499359
+ 185537.93935727 187830.05421255 269943.4741831  146095.94662613
+ 102816.97106344 128609.95545741 111379.8850534  167431.04066671]
+2025-06-24 22:23:27 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:27 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:27 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:27 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:23:27 INFO AOCC mean: 0.0000
+2025-06-24 22:23:27 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:27 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 22:23:27 INFO Run function 19 complete. FEHistory len: 1325, AOCC: 0.0000
+2025-06-24 22:23:27 INFO FeHistory: [186955.05352412 147892.02686229 103109.130379   ... 249832.35937269
+ 213250.82120245 191942.55713161]
+2025-06-24 22:23:27 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:27 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:27 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:27 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:23:27 INFO AOCC mean: 0.0000
+2025-06-24 22:23:27 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:32 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:23:32 INFO FeHistory: [199812.27212608 220706.56110339 219542.83708027 ...   6051.53345125
+   6051.53345125   6051.53345125]
+2025-06-24 22:23:32 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:32 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:32 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:32 INFO Multimodal (multiple components) AOCC mean: 0.2840
+2025-06-24 22:23:32 INFO AOCC mean: 0.2840
+2025-06-24 22:23:32 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:33 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:23:33 INFO FeHistory: [268527.31919332 166178.0091522  218131.26830411 ...   -372.4867207
+   -372.4867207    -372.4867207 ]
+2025-06-24 22:23:33 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:33 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:33 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:33 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:23:33 INFO AOCC mean: 0.0000
+2025-06-24 22:23:33 INFO Weighed AOCC mean: nan
+2025-06-24 22:23:33 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:23:33 INFO FeHistory: [162811.74486946 177931.70343417 188219.22879823 ...  -4045.62198775
+  -4070.98991639  -3947.01150955]
+2025-06-24 22:23:33 INFO Expected Optimum FE: -5000
+2025-06-24 22:23:33 INFO Unimodal AOCC mean: nan
+2025-06-24 22:23:33 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:23:33 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:23:33 INFO AOCC mean: 0.0000
+2025-06-24 22:23:33 INFO Weighed AOCC mean: nan
+2025-06-24 22:24:15 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:24:15 INFO FeHistory: [151224.6268116  164352.97741477 123142.23138892 ...  97320.64685418
+ 140856.35559909 153487.98005288]
+2025-06-24 22:24:15 INFO Expected Optimum FE: -5000
+2025-06-24 22:24:15 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-25 00:01:48 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 00:01:48 INFO FeHistory: [166382.30237946 173789.57360088 115196.07732313 ... 246949.08956485
+ 121641.93785108 142534.52723072]
+2025-06-25 00:01:48 INFO Expected Optimum FE: -5000
+2025-06-25 00:01:48 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-25 00:25:54 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-25 00:25:54 INFO FeHistory: [126239.78122477 123246.91099991 179789.34344209 ... 186292.61674629
+ 142906.37613318 108746.60628645]
+2025-06-25 00:25:54 INFO Expected Optimum FE: -5000
+2025-06-25 00:25:54 INFO Unimodal AOCC mean: nan
+2025-06-25 00:25:54 INFO Multimodal (single component) AOCC mean: nan
+2025-06-25 00:25:54 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-25 00:25:54 INFO AOCC mean: 0.0000
+2025-06-25 00:25:54 INFO Weighed AOCC mean: nan

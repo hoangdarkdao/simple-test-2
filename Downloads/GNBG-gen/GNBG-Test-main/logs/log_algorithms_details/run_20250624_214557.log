@@ -1,0 +1,242 @@
+2025-06-24 21:45:58 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 21:45:58 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 21:45:58 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 21:45:58 INFO --- GNBG Problem Parameters for f16 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0 0 0 0 0 0 0 0 0 0]
+----------------------------------------
+2025-06-24 21:46:42 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.6972
+2025-06-24 21:46:42 INFO FeHistory: [141773.60585981 134663.19613904 142372.14435336 ...  -5000.
+  -5000.          -5000.        ]
+2025-06-24 21:46:42 INFO Expected Optimum FE: -5000
+2025-06-24 21:46:42 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.population = None
+        self.sigma = 0.2 * (self.upper_bounds - self.lower_bounds)  # Initial Standard Deviation for Gaussian Sampling
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.population = np.random.uniform(self.lower_bounds, self.upper_bounds, size=(self.population_size, self.dim))
+        fitness_values = objective_function(self.population)
+        self.eval_count += self.population_size
+
+        self.best_solution_overall = self.population[np.argmin(fitness_values)]
+        self.best_fitness_overall = np.min(fitness_values)
+
+        while self.eval_count < self.budget:
+            # Adaptive Gaussian Sampling
+            parents = self.tournament_selection(fitness_values, k=5)  # Tournament Selection
+            offspring = self.gaussian_mutation(parents, self.sigma)
+
+            # Bounds handling
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds)
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population and best solution
+            self.population = np.concatenate((self.population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = self.population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+            # Adaptive Sigma
+            self.sigma *= 0.99  # Gradually reduce sigma for finer search later.
+
+            # Elitism
+            sorted_pop = self.population[np.argsort(fitness_values)]
+            self.population = sorted_pop[:self.population_size]
+            fitness_values = fitness_values[np.argsort(fitness_values)][:self.population_size]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def tournament_selection(self, fitnesses, k):
+        num_parents = len(fitnesses) // 2  # Select half the population as parents
+        parents = np.zeros((num_parents, self.dim))
+        for i in range(num_parents):
+            tournament = np.random.choice(len(fitnesses), size=k, replace=False)
+            winner_index = tournament[np.argmin(fitnesses[tournament])]
+            parents[i] = self.population[winner_index]
+        return parents
+
+    def gaussian_mutation(self, parents, sigma):
+        offspring = parents + np.random.normal(0, sigma, parents.shape)
+        return offspring
+
+2025-06-24 21:46:42 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 21:46:43 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:46:43 INFO FeHistory: [124826.51547796 170505.93208754  92572.694008   ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-24 21:46:43 INFO Expected Optimum FE: -5000
+2025-06-24 21:46:43 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 21:46:44 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:46:44 INFO FeHistory: [123061.95966022 142948.69646673 123877.24776675 ...  -2214.21564215
+  -2706.33269075  -2487.85480655]
+2025-06-24 21:46:44 INFO Expected Optimum FE: -5000
+2025-06-24 21:46:44 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 21:47:22 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:47:22 INFO FeHistory: [130221.84419348 158780.36446708 151134.39921939 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-24 21:47:22 INFO Expected Optimum FE: -5000
+2025-06-24 21:47:22 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 21:47:24 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:47:24 INFO FeHistory: [107455.13289108 161097.26182608 166926.81997796 ...  -4399.89999992
+  -4399.8999999   -4399.89999977]
+2025-06-24 21:47:24 INFO Expected Optimum FE: -5000
+2025-06-24 21:47:24 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 21:47:25 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:47:25 INFO FeHistory: [206316.09968805 147654.02989182 152868.91106747 ...  88451.6515362
+  75310.69029931  40258.48412037]
+2025-06-24 21:47:25 INFO Expected Optimum FE: -5000
+2025-06-24 21:47:25 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 21:48:03 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0646
+2025-06-24 21:48:03 INFO FeHistory: [261770.28688644 129979.86508575 184771.21341331 ...  -4984.30351255
+  -4984.30351255  -4984.30351255]
+2025-06-24 21:48:03 INFO Expected Optimum FE: -5000
+2025-06-24 21:48:03 INFO Unimodal AOCC mean: nan
+2025-06-24 21:48:03 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 21:48:03 INFO Multimodal (multiple components) AOCC mean: 0.2539
+2025-06-24 21:48:03 INFO AOCC mean: 0.2539
+2025-06-24 21:48:03 INFO Weighed AOCC mean: nan
+2025-06-24 21:48:07 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:48:07 INFO FeHistory: [148805.50139354 197359.2000286  154522.26078665 ...  -4317.89359647
+  -4317.88850132  -4317.88404197]
+2025-06-24 21:48:07 INFO Expected Optimum FE: -5000
+2025-06-24 21:48:07 INFO Unimodal AOCC mean: nan
+2025-06-24 21:48:07 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 21:48:07 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 21:48:07 INFO AOCC mean: 0.0000
+2025-06-24 21:48:07 INFO Weighed AOCC mean: nan
+2025-06-24 21:48:09 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:48:09 INFO FeHistory: [ 87911.16385598 157186.56061048 126744.72937379 ...  47328.2861581
+  22918.80744845  82415.4185896 ]
+2025-06-24 21:48:09 INFO Expected Optimum FE: -5000
+2025-06-24 21:48:09 INFO Unimodal AOCC mean: nan
+2025-06-24 21:48:09 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 21:48:09 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 21:48:09 INFO AOCC mean: 0.0000
+2025-06-24 21:48:09 INFO Weighed AOCC mean: nan
+2025-06-24 21:48:20 INFO Run function 16 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:48:20 INFO FeHistory: [116282.07867773 182533.87061189 147568.17192161 ...  -4470.4
+  -4470.4         -4470.4       ]
+2025-06-24 21:48:20 INFO Expected Optimum FE: -5000
+2025-06-24 21:48:20 INFO --- GNBG Problem Parameters for f18 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.22159228 0.42314776 0.4901829  0.25862884 0.37043014 0.37440768
+ 0.26098797 0.491006   0.27569772 0.45404864]
+----------------------------------------
+2025-06-24 21:50:29 INFO Run function 18 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 21:50:29 INFO FeHistory: [ 91046.62522951 241828.66835549 208287.07579174 ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-24 21:50:29 INFO Expected Optimum FE: -5000
+2025-06-24 21:50:29 INFO --- GNBG Problem Parameters for f19 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -5000.000000
+  Lambda (Curvature): [1 1 1 1 1]
+  Mu (Asymmetry/Depth): [0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5]
+----------------------------------------
+2025-06-24 22:05:32 INFO Run function 19 complete. FEHistory len: 150000, AOCC: 0.0000
+2025-06-24 22:05:32 INFO FeHistory: [202485.42888275 152236.27712769 341567.6598499  ...  -4317.9
+  -4317.9         -4317.9       ]
+2025-06-24 22:05:32 INFO Expected Optimum FE: -5000
+2025-06-24 22:05:32 INFO Unimodal AOCC mean: nan
+2025-06-24 22:05:32 INFO Multimodal (single component) AOCC mean: nan
+2025-06-24 22:05:32 INFO Multimodal (multiple components) AOCC mean: 0.0000
+2025-06-24 22:05:32 INFO AOCC mean: 0.0000
+2025-06-24 22:05:32 INFO Weighed AOCC mean: nan

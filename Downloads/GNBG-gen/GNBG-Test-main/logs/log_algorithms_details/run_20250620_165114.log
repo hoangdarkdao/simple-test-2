@@ -1,0 +1,637 @@
+2025-06-20 16:51:15 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:51:15 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-20 16:51:20 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:51:21 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:51:28 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.7911
+2025-06-20 16:51:28 INFO FeHistory: [ 7.21239673e+05  1.47466114e+06  8.39744611e+05 ... -3.81442582e+02
+ -3.81442582e+02 -3.81442582e+02]
+2025-06-20 16:51:28 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:51:28 INFO Good algorithm:
+Algorithm Name: LatinHypercubeSamplingWithLocalSearch
+import numpy as np
+from scipy.optimize import minimize
+
+class LatinHypercubeSamplingWithLocalSearch:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = int(0.2 * self.budget) # Adjust as needed
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Latin Hypercube Sampling for initialization
+        population = self._latin_hypercube_sampling(self.population_size)
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+        # Local search around the best solutions
+        for i in range(self.population_size):
+            if self.eval_count >= self.budget:
+                break
+            result = minimize(lambda x: objective_function(x.reshape(1, -1))[0], population[i], bounds=list(zip(self.lower_bounds, self.upper_bounds)), method='L-BFGS-B')
+            if result.fun < self.best_fitness_overall:
+                self.best_fitness_overall = result.fun
+                self.best_solution_overall = result.x
+            self.eval_count += result.nfev
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+
+    def _latin_hypercube_sampling(self, num_samples):
+        dim = self.dim
+        ranges = self.upper_bounds - self.lower_bounds
+        samples = np.zeros((num_samples, dim))
+        for i in range(dim):
+            points = np.random.permutation(np.arange(num_samples)) + np.random.uniform(size=num_samples)
+            points = points / num_samples
+            samples[:, i] = self.lower_bounds[i] + points * ranges[i]
+        return samples
+
+2025-06-20 16:51:28 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:51:29 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:51:29 INFO FeHistory: [ 569729.19760784 1154098.8568352  1117535.88397361 ...  103578.03720539
+   89240.02902354   81160.81651693]
+2025-06-20 16:51:29 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:51:29 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:51:36 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:51:36 INFO FeHistory: [126895.47979348 189485.74985176 292367.56346894 ... 409199.24636757
+ 409199.24638853 409199.24640243]
+2025-06-20 16:51:36 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:51:36 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:51:38 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:51:38 INFO FeHistory: [173260.10410845 177804.30082628 170658.11542957 ...  25780.12163202
+  18400.77678303  22151.60226952]
+2025-06-20 16:51:38 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:51:38 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:52:02 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:52:02 INFO FeHistory: [216.10438664 192.40578299 186.9059752  ... 112.00248427 112.00248427
+ 112.00248427]
+2025-06-20 16:52:02 INFO Expected Optimum FE: -100
+2025-06-20 16:52:02 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:52:02 INFO AOCC mean: 0.2637
+2025-06-20 16:52:02 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:52:05 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:52:05 INFO FeHistory: [196.85553964 228.43775311 161.19604944 ...  79.51042825  63.57214568
+  77.90418084]
+2025-06-20 16:52:05 INFO Expected Optimum FE: -100
+2025-06-20 16:52:05 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:52:05 INFO AOCC mean: 0.0000
+2025-06-20 16:52:05 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-20 16:52:10 INFO An exception occured: Traceback (most recent call last):
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_reflection.py", line 158, in initialize_single
+    new_individual = self.evaluate_fitness(new_individual)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_reflection.py", line 261, in evaluate_fitness
+    updated_individual = self.f(individual, self.logger)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macbook/Documents/Code/LLMdesignedEA-comp/llamea_gnbg_test_run.py", line 36, in evaluateGNBG
+    exec(code, globals()) # extract the code part inside the string, ex exec("a = 3 + 4") -> print(a) -> 7
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 89, in <module>
+ModuleNotFoundError: No module named 'pyDOE'
+.
+2025-06-20 16:52:10 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:52:10 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:52:16 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:52:23 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.4795
+2025-06-20 16:52:23 INFO FeHistory: [ 1.34206631e+06  1.27679841e+06  1.43213508e+06 ... -3.82620521e+02
+ -3.82620521e+02 -3.82620521e+02]
+2025-06-20 16:52:23 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:52:23 INFO Good algorithm:
+Algorithm Name: AdaptiveGaussianSamplingEA
+import numpy as np
+
+class AdaptiveGaussianSamplingEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.sigma = (self.upper_bounds - self.lower_bounds) / 2 # Initial standard deviation
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Initialize population using Gaussian sampling around the center
+        population = np.random.normal(loc=(self.upper_bounds + self.lower_bounds) / 2, scale=self.sigma, size=(self.population_size, self.dim))
+        population = np.clip(population, self.lower_bounds, self.upper_bounds) # Ensure bounds
+
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        # Main loop with adaptive Gaussian sampling and selection
+        while self.eval_count < self.budget:
+            # Adapt sigma based on exploration/exploitation tradeoff
+            self.sigma *= 0.98  # Gradually reduce exploration
+
+            # Generate offspring using Gaussian sampling around the best solution(s)
+            offspring = np.random.normal(loc=self.best_solution_overall, scale=self.sigma, size=(self.population_size, self.dim))
+            offspring = np.clip(offspring, self.lower_bounds, self.upper_bounds) # Bound offspring
+
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += self.population_size
+
+            # Elitism: Keep the best solutions from the current generation and offspring
+            combined_population = np.vstack((population, offspring))
+            combined_fitness = np.concatenate((fitness_values, offspring_fitness))
+            indices = np.argsort(combined_fitness)
+            population = combined_population[indices[:self.population_size]]
+            fitness_values = combined_fitness[indices[:self.population_size]]
+
+
+            best_index = np.argmin(fitness_values)
+            if fitness_values[best_index] < self.best_fitness_overall:
+                self.best_solution_overall = population[best_index]
+                self.best_fitness_overall = fitness_values[best_index]
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+2025-06-20 16:52:23 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:52:30 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0130
+2025-06-20 16:52:30 INFO FeHistory: [314801.97347542 321890.20989417 250896.02582815 ...   -593.48872736
+   -593.48872736   -593.48872736]
+2025-06-20 16:52:30 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:52:30 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:52:55 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0076
+2025-06-20 16:52:55 INFO FeHistory: [237.23568438 230.37451684 236.83456622 ... -19.84991573 -19.84991574
+ -19.84991572]
+2025-06-20 16:52:55 INFO Expected Optimum FE: -100
+2025-06-20 16:52:55 INFO Multimodal (single component) AOCC mean: 0.0130
+2025-06-20 16:52:55 INFO AOCC mean: 0.1667
+2025-06-20 16:52:55 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-20 16:53:01 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:53:11 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:53:11 INFO FeHistory: [834763.53963078 961319.99829739 710346.95292475 ... 180218.54042938
+ 148768.84734055 268578.82411847]
+2025-06-20 16:53:11 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:53:11 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:53:21 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:53:21 INFO FeHistory: [183743.06153861 192504.62997527 212563.47614336 ...  33369.54623604
+  41979.5819432   45513.92073662]
+2025-06-20 16:53:21 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:53:21 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:53:49 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:53:49 INFO FeHistory: [201.98957047 198.88388376 179.53697628 ... 112.784875   113.35468155
+ 113.37699936]
+2025-06-20 16:53:49 INFO Expected Optimum FE: -100
+2025-06-20 16:53:49 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:53:49 INFO AOCC mean: 0.0000
+2025-06-20 16:53:49 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:53:54 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:54:00 INFO Run function 4 complete. FEHistory len: 70470, AOCC: 0.9850
+2025-06-20 16:54:00 INFO FeHistory: [ 9.98593138e+05  7.67708290e+05  8.33452987e+05 ... -3.82620521e+02
+ -3.82620521e+02 -3.82620521e+02]
+2025-06-20 16:54:00 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:54:00 INFO Good algorithm:
+Algorithm Name: LatinHypercubeSamplingAndLocalSearch
+import numpy as np
+from scipy.optimize import minimize
+
+class LatinHypercubeSamplingAndLocalSearch:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = int(min(self.budget / 2, 100)) # Adjust as needed
+
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Latin Hypercube Sampling for initial population
+        population = self._latin_hypercube_sampling(self.population_size, self.dim)
+
+        # Evaluate initial population
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        #Find initial best
+        best_index = np.argmin(fitness_values)
+        self.best_solution_overall = population[best_index]
+        self.best_fitness_overall = fitness_values[best_index]
+
+
+        # Local search around the best solutions
+        for i in range(self.population_size):
+            if self.eval_count >= self.budget:
+                break
+            res = minimize(lambda x: objective_function(x.reshape(1, -1))[0], population[i], method='L-BFGS-B', bounds=list(zip(self.lower_bounds, self.upper_bounds)))
+            if res.fun < self.best_fitness_overall:
+                self.best_fitness_overall = res.fun
+                self.best_solution_overall = res.x
+            self.eval_count +=1
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _latin_hypercube_sampling(self, num_samples, dim):
+        samples = np.zeros((num_samples, dim))
+        for i in range(dim):
+            points = np.random.permutation(num_samples) + np.random.uniform(0,1, num_samples)
+            points = points/ num_samples
+            samples[:,i] = points
+        samples = samples * (self.upper_bounds - self.lower_bounds) + self.lower_bounds
+        return samples
+2025-06-20 16:54:00 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:54:05 INFO Run function 8 complete. FEHistory len: 67091, AOCC: 0.0000
+2025-06-20 16:54:05 INFO FeHistory: [205161.1218119  247061.14209467 173830.11635167 ... 147984.51775495
+ 147984.51775495 147984.51775495]
+2025-06-20 16:54:05 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:54:05 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:54:48 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:54:48 INFO FeHistory: [172.58137108 203.5529977  183.12383276 ... 152.4445522  152.4445522
+ 152.4445522 ]
+2025-06-20 16:54:48 INFO Expected Optimum FE: -100
+2025-06-20 16:54:48 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:54:48 INFO AOCC mean: 0.3283
+2025-06-20 16:54:48 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-20 16:56:00 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:56:09 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.0031
+2025-06-20 16:56:09 INFO FeHistory: [1050286.62834642  903668.99929316  888435.0595072  ...    4570.87803308
+    3150.40849276    7634.41076236]
+2025-06-20 16:56:09 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:56:09 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:56:17 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0509
+2025-06-20 16:56:17 INFO FeHistory: [259866.27318874 140872.2094707  118325.49019736 ...  15426.62060126
+   -651.31778119   7533.79223081]
+2025-06-20 16:56:17 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:56:17 INFO Good algorithm:
+Algorithm Name: AdaptiveMultimodalInitializationEA
+import numpy as np
+import random
+
+class AdaptiveMultimodalInitializationEA:
+    def __init__(self, budget: int, dim: int, lower_bounds: list[float], upper_bounds: list[float]):
+        self.budget = int(budget)
+        self.dim = int(dim)
+        self.lower_bounds = np.array(lower_bounds, dtype=float)
+        self.upper_bounds = np.array(upper_bounds, dtype=float)
+
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+        self.population_size = 100  # Adjust as needed
+        self.mutation_rate = 0.1  # Adjust as needed
+
+    def optimize(self, objective_function: callable, acceptance_threshold: float = 1e-8) -> tuple:
+        self.eval_count = 0
+        self.best_solution_overall = None
+        self.best_fitness_overall = float('inf')
+
+        # Adaptive Multimodal Initialization: Create initial population with diverse sampling strategies
+        population = np.zeros((self.population_size, self.dim))
+        for i in range(self.population_size):
+            if random.random() < 0.5:  # Uniform sampling
+                population[i] = np.random.uniform(self.lower_bounds, self.upper_bounds, self.dim)
+            else:  # Latin Hypercube sampling for better space coverage
+                population[i] = self._latin_hypercube_sampling(self.lower_bounds, self.upper_bounds)
+
+        fitness_values = objective_function(population)
+        self.eval_count += self.population_size
+
+        #Main Optimization Loop
+        while self.eval_count < self.budget:
+            # Selection (Tournament Selection)
+            parents = self._tournament_selection(population, fitness_values)
+
+            # Mutation
+            offspring = self._mutate(parents)
+
+            # Evaluation
+            offspring_fitness = objective_function(offspring)
+            self.eval_count += len(offspring)
+
+            # Update population
+            population = np.concatenate((population, offspring))
+            fitness_values = np.concatenate((fitness_values, offspring_fitness))
+
+            # Selection of top performing individuals (elitism)
+            indices = np.argsort(fitness_values)
+            population = population[indices[:self.population_size]]
+            fitness_values = fitness_values[indices[:self.population_size]]
+
+            # Update overall best
+            min_index = np.argmin(fitness_values)
+            if fitness_values[min_index] < self.best_fitness_overall:
+                self.best_fitness_overall = fitness_values[min_index]
+                self.best_solution_overall = population[min_index]
+
+
+        optimization_info = {
+            'function_evaluations_used': self.eval_count,
+            'final_best_fitness': self.best_fitness_overall
+        }
+        return self.best_solution_overall, self.best_fitness_overall, optimization_info
+
+    def _latin_hypercube_sampling(self, lower_bounds, upper_bounds):
+        dim = len(lower_bounds)
+        points = []
+        for i in range(dim):
+            points.append(np.random.choice(np.linspace(lower_bounds[i], upper_bounds[i], self.population_size), replace=False))
+
+        return np.array(points).transpose()
+
+
+    def _tournament_selection(self, population, fitness_values, tournament_size=5):
+        num_parents = len(population) // 2
+        parents = []
+        for i in range(num_parents):
+            tournament = random.sample(range(len(population)), tournament_size)
+            winner_index = tournament[np.argmin(fitness_values[tournament])]
+            parents.append(population[winner_index])
+        return np.array(parents)
+
+
+    def _mutate(self, parents):
+        offspring = []
+        for parent in parents:
+            offspring.append(self._mutate_individual(parent))
+        return np.array(offspring)
+
+    def _mutate_individual(self, individual):
+        mutated_individual = np.copy(individual)
+        for i in range(self.dim):
+            if random.random() < self.mutation_rate:
+                mutated_individual[i] += np.random.normal(0, (self.upper_bounds[i]-self.lower_bounds[i])/5 ) # Adjust scaling as needed
+                mutated_individual[i] = np.clip(mutated_individual[i], self.lower_bounds[i], self.upper_bounds[i])
+        return mutated_individual
+
+
+2025-06-20 16:56:17 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:56:43 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0072
+2025-06-20 16:56:43 INFO FeHistory: [164.28767476 154.33098199 198.72566059 ...  20.61768428  31.0079178
+   2.74118189]
+2025-06-20 16:56:43 INFO Expected Optimum FE: -100
+2025-06-20 16:56:43 INFO Multimodal (single component) AOCC mean: 0.0509
+2025-06-20 16:56:43 INFO AOCC mean: 0.0204
+2025-06-20 16:56:43 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:56:49 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:56:57 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:56:57 INFO FeHistory: [1038901.49705075  538800.44517816 1146226.88083826 ...  119422.64350495
+  121296.85131873  141735.3714418 ]
+2025-06-20 16:56:57 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:56:57 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:57:06 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:57:06 INFO FeHistory: [200729.40405816 146270.86633081 107590.85451007 ...  86008.27968161
+  56271.6542976   62929.41741465]
+2025-06-20 16:57:06 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:57:06 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:57:32 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:57:32 INFO FeHistory: [166.88582454 193.98237733 214.32500327 ...  98.99521833 123.7726214
+  86.21292414]
+2025-06-20 16:57:32 INFO Expected Optimum FE: -100
+2025-06-20 16:57:32 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:57:32 INFO AOCC mean: 0.0000
+2025-06-20 16:57:32 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
+2025-06-20 16:57:39 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 16:57:48 INFO Run function 4 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:57:48 INFO FeHistory: [1840893.30591492 1120912.30537649 1686857.3377141  ...  111326.1187196
+  152407.68488488  220880.94957007]
+2025-06-20 16:57:48 INFO Expected Optimum FE: -382.6205211774271
+2025-06-20 16:57:48 INFO --- GNBG Problem Parameters for f8 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -656.788998
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0.2 0.2]
+----------------------------------------
+2025-06-20 16:57:57 INFO Run function 8 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:57:57 INFO FeHistory: [222678.59704903 179346.32334036 249417.39414847 ...  55709.47082316
+  88225.68397361  72845.97444121]
+2025-06-20 16:57:57 INFO Expected Optimum FE: -656.7889979935655
+2025-06-20 16:57:57 INFO --- GNBG Problem Parameters for f24 ---
+  Dimension: 30, MaxEvals: 1000000
+  Search Bounds: [-100, 100]
+  Number of Components: 5
+  Known Optimum Value: -100.000000
+  Lambda (Curvature): [0.25 0.25 0.25 0.25 0.25]
+  Mu (Asymmetry/Depth): [0.44142637 0.27898903 0.25803028 0.21978833 0.39183826 0.42051979
+ 0.35740109 0.43165341 0.47744239 0.47234476]
+----------------------------------------
+2025-06-20 16:58:24 INFO Run function 24 complete. FEHistory len: 100000, AOCC: 0.0000
+2025-06-20 16:58:24 INFO FeHistory: [195.86580827 192.49333697 188.04550064 ... 113.94871381 107.01246363
+  94.52952672]
+2025-06-20 16:58:24 INFO Expected Optimum FE: -100
+2025-06-20 16:58:24 INFO Multimodal (single component) AOCC mean: 0.0000
+2025-06-20 16:58:24 INFO AOCC mean: 0.0000
+2025-06-20 16:58:24 INFO Using LLM api key #AIzaSyAztTjjdPvt_jrqdXv5LBPLhsUlclc0GhE)
+2025-06-20 16:58:30 INFO --- GNBG Problem Parameters for f4 ---
+  Dimension: 30, MaxEvals: 500000
+  Search Bounds: [-100, 100]
+  Number of Components: 1
+  Known Optimum Value: -382.620521
+  Lambda (Curvature): [1]
+  Mu (Asymmetry/Depth): [0 0]
+----------------------------------------
+2025-06-20 17:04:29 INFO Using LLM api key #AIzaSyCG5S_nwjZfCfm1LuxUcfIXvA9b4PmR3Lg)
