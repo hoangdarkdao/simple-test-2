@@ -401,9 +401,8 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
         plt.close()
         
 if __name__ == "__main__":
-    folder_path = os.path.join(folder,"codes/gnbg_python")
-    solutions_dir = os.path.join(folder, "best_solutions")
-    os.makedirs(solutions_dir, exist_ok=True)
+    folder_path = "/kaggle/working/simple-test-2/Downloads/GNBG-gen/GNBG-Test-main/codes/gnbg_python"
+
     # Example usage
     problem_list = [10]
     for ProblemIndex in problem_list:
