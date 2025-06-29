@@ -311,7 +311,7 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
                      Dimension, CompNum, MinCoordinate, MaxCoordinate,
                      CompMinPos, CompSigma, CompH, Mu, Omega,
                      Lambda, RotationMatrix, OptimumValue, OptimumPosition,
-                    num_runs: int = 31,
+                    num_runs: int = 1,
                     seed: Optional[int] = None) -> Tuple[List[float], List[np.ndarray]]:
     """
     Run multiple optimization runs for a given problem
@@ -405,7 +405,7 @@ if __name__ == "__main__":
     solutions_dir = os.path.join(folder, "best_solutions")
     os.makedirs(solutions_dir, exist_ok=True)
     # Example usage
-    problem_list = [1,2,3,4,5,6,7,8,9,10]
+    problem_list = [10]
     for ProblemIndex in problem_list:
         
         filename = f'f{ProblemIndex}.mat'
