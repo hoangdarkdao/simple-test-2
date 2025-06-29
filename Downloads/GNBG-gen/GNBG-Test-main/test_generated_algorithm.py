@@ -401,7 +401,7 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
         plt.close()
         
 if __name__ == "__main__":
-    folder_path = "codes/gnbg_python"
+    folder_path = os.path.join(folder,"codes/gnbg_python")
     solutions_dir = os.path.join(folder, "best_solutions")
     os.makedirs(solutions_dir, exist_ok=True)
     # Example usage
