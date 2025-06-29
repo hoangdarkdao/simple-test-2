@@ -376,7 +376,11 @@ def run_optimization(MaxEvals, AcceptanceThreshold,
             logging.info(f"Std fitness: {np.std(best_values)}") 
             logging.info(f"Mean AOCC:         {np.mean(aoccs):.4f} (Higher is better)")
             logging.info(f"Std Dev AOCC:      {np.std(aoccs):.4f}")
-            
+
+            output_filename = f"problem{ProblemIndex}_run{run + 1}.txt"
+            output_filepath = os.path.join(best_solutions_folder, output_filename)
+            np.savetxt(output_filepath, best_solution) # Lưu vector tốt nhất
+        
         except Exception as e:
             logging.error(f"Run {run + 1} failed due to: {e}", exc_info=True)
             print(f"Run {run + 1} failed: {e}")
